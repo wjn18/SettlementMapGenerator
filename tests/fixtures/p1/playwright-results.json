@@ -1,0 +1,269 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "F:\\WorkingFiles\\TwonGenerator\\SettlementMapGenerator\\node_modules\\@playwright\\test\\cli.js",
+      "test"
+    ],
+    "configFile": "F:\\WorkingFiles\\TwonGenerator\\SettlementMapGenerator\\playwright.config.ts",
+    "rootDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/tests/integration",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "F:\\WorkingFiles\\TwonGenerator\\SettlementMapGenerator\\tests\\start-servers.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "dev-dpr1",
+        "name": "dev-dpr1",
+        "testDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/tests/integration",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      },
+      {
+        "outputDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "dev-dpr2",
+        "name": "dev-dpr2",
+        "testDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/tests/integration",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      },
+      {
+        "outputDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "production-dpr1",
+        "name": "production-dpr1",
+        "testDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/tests/integration",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      },
+      {
+        "outputDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "production-dpr2",
+        "name": "production-dpr2",
+        "testDir": "F:/WorkingFiles/TwonGenerator/SettlementMapGenerator/tests/integration",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "artifacts/p1/playwright-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "openfl-probe.spec.ts",
+      "file": "openfl-probe.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "OpenFL graphics, bitmap font, transparent hit region, zoom and responsive DPR",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "dev-dpr1",
+              "projectName": "dev-dpr1",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1023,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-29T09:35:21.704Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "838f569c6cc261b1721c-8348196e85cb1c3f7892",
+          "file": "openfl-probe.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "OpenFL graphics, bitmap font, transparent hit region, zoom and responsive DPR",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "dev-dpr2",
+              "projectName": "dev-dpr2",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 971,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-29T09:35:23.523Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "838f569c6cc261b1721c-775f7fdfaaa26ba90567",
+          "file": "openfl-probe.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "OpenFL graphics, bitmap font, transparent hit region, zoom and responsive DPR",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "production-dpr1",
+              "projectName": "production-dpr1",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 914,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-29T09:35:25.319Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "838f569c6cc261b1721c-66b995da4170d44dad6f",
+          "file": "openfl-probe.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "OpenFL graphics, bitmap font, transparent hit region, zoom and responsive DPR",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "production-dpr2",
+              "projectName": "production-dpr2",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 962,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-29T09:35:27.030Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "838f569c6cc261b1721c-524e343d79a6ef879448",
+          "file": "openfl-probe.spec.ts",
+          "line": 7,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-29T09:35:21.042Z",
+    "duration": 7418.386,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

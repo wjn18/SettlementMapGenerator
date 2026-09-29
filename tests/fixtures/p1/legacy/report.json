@@ -1,0 +1,302 @@
+{
+  "browser": "153.0.8010.53",
+  "viewport": {
+    "width": 800,
+    "height": 800
+  },
+  "samples": [
+    {
+      "seed": 1,
+      "size": 6,
+      "attempts": 3,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 30,
+      "geometries": 54,
+      "stageSha256": "c13a5650efa1d50d868171e98cd738d9459e766fc95937f6eb787649b1873e6c",
+      "screenshotSha256": "ff3f333d633e88f69fbd2c6ec9329fc59681f36511ddbd03d79e7dc75407dd0f",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 1,
+      "size": 15,
+      "attempts": 5,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 76,
+      "geometries": 246,
+      "stageSha256": "866b90dd950492ea81095c5ea4bb3989013e46057a719baf0308199d65dbdcdb",
+      "screenshotSha256": "604cacd16c9f1088e7b8588d3ecbb18bad9a092cfa450023ba1184b0ee3dfff5",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 1,
+      "size": 24,
+      "attempts": 3,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 108,
+      "geometries": 621,
+      "stageSha256": "d16eb4a72da7db6dc394d4e9dcccfe6264709842c934506f71ed07e51d876f4d",
+      "screenshotSha256": "fc3c5bc1ee40ebf9c3f78895c6cf08286724031348c0b27a7ea58efed4a5c9cd",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 1,
+      "size": 40,
+      "attempts": 2,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 166,
+      "geometries": 1605,
+      "stageSha256": "9d8fe130a57245c9541577b21c8e673aba9e4a910b7e2a5a96d5da625c7b01a5",
+      "screenshotSha256": "aa33664a23a1335bedae2599e359cb4996d409cb3ee3458dd5d6f972367961ca",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 42,
+      "size": 6,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": true
+      },
+      "patches": 31,
+      "geometries": 45,
+      "stageSha256": "cb1f38c0e8a22671646d45a31176fe2c50394e612273c882fb0dc1a8912a1a61",
+      "screenshotSha256": "bbca280188a3bda75e75ecb99c227f9571bbd3511f1095dc3569d45cfae30873",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 42,
+      "size": 15,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": true
+      },
+      "patches": 72,
+      "geometries": 473,
+      "stageSha256": "c2134822923e7cd78412b56e610a73520eed08db33e00f1b2ea0ef6059393e96",
+      "screenshotSha256": "e8746992df109790acbeb9fc9c0e135d2cb40ef91ad11f6d5a564dff6098fbf6",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 42,
+      "size": 24,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": true
+      },
+      "patches": 105,
+      "geometries": 867,
+      "stageSha256": "5e0f853cab68116b8533a57b7038e8d98d07a8405138feee63a66973fa5a8af5",
+      "screenshotSha256": "0bb774953ab686818c2f26892e9c99208452c94e4a7dac637dd20a346ca84aa6",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 42,
+      "size": 40,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": true
+      },
+      "patches": 150,
+      "geometries": 2209,
+      "stageSha256": "21b46f92f0b76d4588b33edc9459f055092c6ddd6ea4580205df4067d43192ba",
+      "screenshotSha256": "d5bf8cdeb7ae013063386492194f9293fa4df6d915ceed30a074e57c7d4c0663",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 12345,
+      "size": 6,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": false
+      },
+      "patches": 27,
+      "geometries": 21,
+      "stageSha256": "f1404611068cff818b0cae9d7a95769cde9c1502c7d9abb27d4564f412d0857a",
+      "screenshotSha256": "ea59928ac0d2b47471f8b3cdb04013493642c897362e02b1d748c9f1ab5d29e7",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 12345,
+      "size": 15,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": false
+      },
+      "patches": 77,
+      "geometries": 253,
+      "stageSha256": "a1d987f2c0d535db36daeb3f6990b4874e5e76a5a54a1d87fc5f1aa5ddb5f5df",
+      "screenshotSha256": "7cda422abf65cd144abcf970a45964565140f7eeac6bddc29d3b00dae62f2f0a",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 12345,
+      "size": 24,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": false
+      },
+      "patches": 107,
+      "geometries": 624,
+      "stageSha256": "2aa0ea7b29171954b5951a42299fbad7ae69fc990c8ae6f5b8aa91a54ade904a",
+      "screenshotSha256": "6bd257aee0181217d55f016de983a01c021ffdf61dafac6b958224a09baef032",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 12345,
+      "size": 40,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": false,
+        "walls": false
+      },
+      "patches": 162,
+      "geometries": 1613,
+      "stageSha256": "be228f0402b73f5aec4b5071225175cc76072d1041b775e02844d27556b76375",
+      "screenshotSha256": "510a94926e902bf7fab678c518a711168fff8645fe735606a90c11415965c0ac",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 682063530,
+      "size": 6,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 29,
+      "geometries": 58,
+      "stageSha256": "d7935b46bbaee3988f2aae59862cd0eb42373bf4b0a2a3b193ac2614d7f2aa3c",
+      "screenshotSha256": "1ed5641c8e0293f9079af07a68a117f117936bf54c3fa550ba38dcd214694c78",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 682063530,
+      "size": 15,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 69,
+      "geometries": 288,
+      "stageSha256": "96a10fa3a1015a57e990efe29493e1f1ffe7e1667a90490e2a50ea09b0d6bb84",
+      "screenshotSha256": "0b557bd93fa002d14cbbd8a8995c8837824ac01afc8eda4098a74c6f59557e00",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 682063530,
+      "size": 24,
+      "attempts": 1,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 111,
+      "geometries": 538,
+      "stageSha256": "89cdffcfe9d4edfb24d9f0d036f8a0d4ff26107084c7aa1cf1950ae953ca6e2f",
+      "screenshotSha256": "92efa4b4faa81309cf419607de7d324ff4deeb1c32bcda22c947f4963ce66c19",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 682063530,
+      "size": 40,
+      "attempts": 2,
+      "features": {
+        "plaza": true,
+        "castle": true,
+        "walls": false
+      },
+      "patches": 162,
+      "geometries": 1550,
+      "stageSha256": "afca3b9d2e688647ddfbdcf9e43b43c81cffa731feeae918cf37ad93f688de66",
+      "screenshotSha256": "1b18d0cc73410f2066ffdfc4780812e4ba8b1d903357fa0e281c95755ad7ae0c",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 22245,
+      "size": 6,
+      "attempts": 1,
+      "features": {
+        "plaza": false,
+        "castle": false,
+        "walls": true
+      },
+      "patches": 29,
+      "geometries": 95,
+      "stageSha256": "40749d9983e33380ab83b600bc7bcf116b84f78e5d3c279bede66bb4a5a25685",
+      "screenshotSha256": "d0fd26638b4ddf34257300c2ecd9be30586a926620b41f06b84cc5083020c82d",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    },
+    {
+      "seed": 30000,
+      "size": 40,
+      "attempts": 1,
+      "features": {
+        "plaza": false,
+        "castle": false,
+        "walls": false
+      },
+      "patches": 189,
+      "geometries": 1406,
+      "stageSha256": "cab8d87fc306cb9ed4d2201c340a7bc1f028886f00aa381b7c84a1ce115e53b0",
+      "screenshotSha256": "e1d33ad824e4804bf1884e362c82d2f609c6f2bf0d5ed2a0e9ecc222cb080ef5",
+      "repeatEqual": true,
+      "instrumentationPixelsEqual": true
+    }
+  ],
+  "dpr2": {
+    "seed": 12345,
+    "size": 24,
+    "screenshotSha256": "71d071ef6931fdfa9debd0f842d6a187bba02b77c2b1981f264d2b5a8ea7a625"
+  }
+}

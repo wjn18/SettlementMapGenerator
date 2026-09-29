@@ -1,0 +1,454 @@
+{
+  "repository": "https://github.com/watabou/TownGeneratorOS",
+  "commit": "7fbc87a9398cc508af24de93f79cf2ad027f352b",
+  "files": [
+    {
+      "path": ".gitignore",
+      "gitBlob": "f22fdbc34acf51eb089f26d2f319904b23f9c2f6",
+      "encoding": "utf8-lf",
+      "bytes": 30,
+      "sha256": "4b120cb8720b2ce68392f455d855907b63c5c5c4191e605e826fb62c2c0549ea"
+    },
+    {
+      "path": "Assets/maroubra.png",
+      "gitBlob": "d48ac8e32d31f28704405ca93f56e05369bf2631",
+      "encoding": "binary",
+      "bytes": 15987,
+      "sha256": "58171e999090b5556a7c01164ed8131e17ed8103b1a018adb1aaa0ede21d8cf2"
+    },
+    {
+      "path": "LICENSE",
+      "gitBlob": "9cecc1d4669ee8af2ca727a5d8cde10cd8b2d7cc",
+      "encoding": "utf8-lf",
+      "bytes": 35141,
+      "sha256": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2"
+    },
+    {
+      "path": "README.md",
+      "gitBlob": "26406d1a02eee9bb360d05116d2e8c672cdec8e3",
+      "encoding": "utf8-lf",
+      "bytes": 531,
+      "sha256": "823893fa635e7edf4257f37366364df485cf8121ccec2e1ffc05e31786781574"
+    },
+    {
+      "path": "Source/com/watabou/coogee/Atlas.hx",
+      "gitBlob": "7cd54678922c8c085949c88b59c6374cb61ee10b",
+      "encoding": "utf8-lf",
+      "bytes": 1924,
+      "sha256": "e6699db53aebde36f4f488af8f578460fdeb3783c7d811c6940df012a641fc5a"
+    },
+    {
+      "path": "Source/com/watabou/coogee/BitmapText.hx",
+      "gitBlob": "9ac134f093507a9a32820d1c68a8543cbc020dbd",
+      "encoding": "utf8-lf",
+      "bytes": 4248,
+      "sha256": "093c4e16ad39910af04071483fbabec0c148db617e535e915b871cef6f94e2c7"
+    },
+    {
+      "path": "Source/com/watabou/coogee/Game.hx",
+      "gitBlob": "1cecc484c6f26c53d0b9ec51478ee06f891fd67a",
+      "encoding": "utf8-lf",
+      "bytes": 2468,
+      "sha256": "a0017d37cd52851cb49a106c004e5108ae7d898e09f25939b38e9a468c3cd19b"
+    },
+    {
+      "path": "Source/com/watabou/coogee/MovieClip.hx",
+      "gitBlob": "438c0c4533e1d65e8d8e46fe08e1e25aeff2a6f2",
+      "encoding": "utf8-lf",
+      "bytes": 2876,
+      "sha256": "ede9655492acc5783996f20724e5a9ee195e8df8f2091a70a83e327fd39849b4"
+    },
+    {
+      "path": "Source/com/watabou/coogee/NinePatch.hx",
+      "gitBlob": "5c3d71cd4840a5469f42ce594a802c477294da18",
+      "encoding": "utf8-lf",
+      "bytes": 2335,
+      "sha256": "b7e21d803dec2da51a12199c83a0ee1a59078b57cf2b85128a48b5bee41fcf83"
+    },
+    {
+      "path": "Source/com/watabou/coogee/Scene.hx",
+      "gitBlob": "37b07a67aaf10268d766361f694bea4d06ff1546",
+      "encoding": "utf8-lf",
+      "bytes": 1351,
+      "sha256": "faf975e019164d716b64e63658648f47e0a11978860c69654d73cf4d6414d579"
+    },
+    {
+      "path": "Source/com/watabou/geom/Circle.hx",
+      "gitBlob": "c11f47f998e8d8ff681e29029f0be8bf7ce8be76",
+      "encoding": "utf8-lf",
+      "bytes": 217,
+      "sha256": "c5ed710926532077b57e3d9fdd3efde3c8c4c8241b1adcb3c0bd9968d8bc2963"
+    },
+    {
+      "path": "Source/com/watabou/geom/GeomUtils.hx",
+      "gitBlob": "104ab0b29d2fef968aea798bc9422f5a32204ba5",
+      "encoding": "utf8-lf",
+      "bytes": 1044,
+      "sha256": "92e0d97bd27fe8c801a70ac04c39c7bcb25766bde41dc6866ceacb491bb373eb"
+    },
+    {
+      "path": "Source/com/watabou/geom/Graph.hx",
+      "gitBlob": "b112df2ffb33037c4b2451483573935c31e98de7",
+      "encoding": "utf8-lf",
+      "bytes": 2399,
+      "sha256": "3d9359b4d5ebbd1c90860e6d453f3d47ac7c30e5420a75a3f206270fd7d2bba7"
+    },
+    {
+      "path": "Source/com/watabou/geom/Polygon.hx",
+      "gitBlob": "a31acea4bfe1c050ac32bac65e934727c7dd00e0",
+      "encoding": "utf8-lf",
+      "bytes": 14170,
+      "sha256": "f3fc0d61c258ac73a2684b649a23b44a25a1044b3d0c1d50d4a1f9a5b6cf7d6b"
+    },
+    {
+      "path": "Source/com/watabou/geom/Segment.hx",
+      "gitBlob": "9e4997d4c981b6767a7794b27b882752e34c335d",
+      "encoding": "utf8-lf",
+      "bytes": 632,
+      "sha256": "7936d56c3ec3b6427e69ccffff40dc2f474feff40205b688e0d8d58cdcf46527"
+    },
+    {
+      "path": "Source/com/watabou/geom/Spline.hx",
+      "gitBlob": "7bc421d24339d5ce7fd33247d2cc450b09ec94a8",
+      "encoding": "utf8-lf",
+      "bytes": 1217,
+      "sha256": "d417746ec4114b5cbb208b5a811b8ea74991dd775154a3b76a10353aefb02388"
+    },
+    {
+      "path": "Source/com/watabou/geom/Voronoi.hx",
+      "gitBlob": "c765f967ed6af6eff1b5ec7467ce29dfc24db205",
+      "encoding": "utf8-lf",
+      "bytes": 6484,
+      "sha256": "81ba4d969692e2116ad405741daf0e25734ea0fd9c2c24919ded664e3f33a293"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/Main.hx",
+      "gitBlob": "d4c06b092f5847046e1cb1ba47e1e9243c2e24b0",
+      "encoding": "utf8-lf",
+      "bytes": 751,
+      "sha256": "bca25e1d0a89142709ebb866dcefd93eb02837bf4df7bf1f3dd4b8d88e80e84d"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/StateManager.hx",
+      "gitBlob": "6d158c142dae7f5ae68d0f013cac1b644d3ef3db",
+      "encoding": "utf8-lf",
+      "bytes": 1526,
+      "sha256": "7df36c43d87d5526c795aee541f56cfe91aaae14edac8f1540746773f4fecb8c"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/TownScene.hx",
+      "gitBlob": "ca06a990180a034a3eda69b91c7b3616c22616d4",
+      "encoding": "utf8-lf",
+      "bytes": 1565,
+      "sha256": "592488beb75fed7566ed9971eb6323a07533c54559f452ba7503693cbae1661c"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/building/CurtainWall.hx",
+      "gitBlob": "d5ed1a04f55f705b957406effcbad3682512b944",
+      "encoding": "utf8-lf",
+      "bytes": 4165,
+      "sha256": "bb42884cd36c331589b2726e59c7aa2e6c696c6bd5ba1d0afc0c34c70f6336f2"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/building/Cutter.hx",
+      "gitBlob": "41ce92ee0757e4da274c4974657c3a48e0938e97",
+      "encoding": "utf8-lf",
+      "bytes": 2366,
+      "sha256": "a913776115c4fbdb3f79d8f62d202bf3d32048f1075100fbac8b597402d33bb8"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/building/Model.hx",
+      "gitBlob": "910a753c89d6a35c45c24dad6d2a4545e59ae2e6",
+      "encoding": "utf8-lf",
+      "bytes": 11121,
+      "sha256": "1407fca9a0d6a36a6c280ee8d5663fd4854bddb21d03c25e5c31cd5655dc8785"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/building/Patch.hx",
+      "gitBlob": "7ba2d0688e5ba754f76dee100dbec4cb2681c2b9",
+      "encoding": "utf8-lf",
+      "bytes": 581,
+      "sha256": "e953d34303440431d696e40b31ea761e49c3af31b7bbf46d4e94f4ccab0530f3"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/building/Topology.hx",
+      "gitBlob": "e424aa9fa60485c67ad6a21b6f8caf04d305123d",
+      "encoding": "utf8-lf",
+      "bytes": 1917,
+      "sha256": "1d03a4113e43be18598c61b0b4079a5045826801739ed6e78621f83538232be5"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/mapping/Brush.hx",
+      "gitBlob": "289af1e07febe617e5cb30c817d32b4ac06709b7",
+      "encoding": "utf8-lf",
+      "bytes": 1191,
+      "sha256": "bd9fbca0d6698aa26b0afad76636da5feef051a1b4d37ed7891254e79836392c"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/mapping/CityMap.hx",
+      "gitBlob": "19520e882be2d9adea254afc984aa116396b0bd9",
+      "encoding": "utf8-lf",
+      "bytes": 3550,
+      "sha256": "7f446e53a40a718d09d0aacbb416a93bd00fd8c854576e9ee2ed4b5b4e372714"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/mapping/Palette.hx",
+      "gitBlob": "3cbaeb73718849eef58fad78a800c791d7960956",
+      "encoding": "utf8-lf",
+      "bytes": 981,
+      "sha256": "3435f4df3621364d2e80593390ea1a15085ba317e301b93fa55f51d707321dbe"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/mapping/PatchView.hx",
+      "gitBlob": "4b5a2e491c0b67167f63189e558980f411b6eb98",
+      "encoding": "utf8-lf",
+      "bytes": 888,
+      "sha256": "89d0051d7585c0492aeed6e63afc1449191ef28b5bc2adb85a6aebeb234984b9"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/ui/Button.hx",
+      "gitBlob": "118e712718326c0b169dddc0b28412248b8928bb",
+      "encoding": "utf8-lf",
+      "bytes": 964,
+      "sha256": "03a8cee8f4a09537c00be4771e9d4e257c01f554ae8475633003f40a2b0f04e1"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/ui/CitySizeButton.hx",
+      "gitBlob": "183d67994432ef55b74947e36ac9e813dc39eddc",
+      "encoding": "utf8-lf",
+      "bytes": 592,
+      "sha256": "1a8c0475784e2b0938e86444d7fb9218dda29e20bf12825cc2c5c8f0a8eb855a"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/ui/Tooltip.hx",
+      "gitBlob": "7f8ac125a2c17a81f77edba49bdd83f9f407f0c1",
+      "encoding": "utf8-lf",
+      "bytes": 1447,
+      "sha256": "17399917bf4be373cfc1579ec497561e26fd94e5448d9b5284fd1ac1852af618"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/AdministrationWard.hx",
+      "gitBlob": "e8911a07d469d57757e4736ac14f47297236bd5e",
+      "encoding": "utf8-lf",
+      "bytes": 849,
+      "sha256": "74dd8a5e08aa8c601527e97b44eecdc3789d06e59d1f4c29f3a94e86652af54a"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Castle.hx",
+      "gitBlob": "eab59eac28d2b410af63e7eb7eaf8d53092054ca",
+      "encoding": "utf8-lf",
+      "bytes": 847,
+      "sha256": "c549db02f34f050757fdb50ce2e68dc3602f5ce545301dd0385e8e340419b4b0"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Cathedral.hx",
+      "gitBlob": "ed7f3fe5caa76c146d19c11f5c5356a178ddd32a",
+      "encoding": "utf8-lf",
+      "bytes": 924,
+      "sha256": "d737c1e96133bf415c8fd8e0a9908910ea06c60423bb897bd7066c8deb0f6876"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/CommonWard.hx",
+      "gitBlob": "d3af3d6212800e74888956737695e4cb2e5b30e8",
+      "encoding": "utf8-lf",
+      "bytes": 780,
+      "sha256": "e55a7366f372ea269ebcdd54a5f123ff8cd8a083148444010ade8e6903362a0b"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/CraftsmenWard.hx",
+      "gitBlob": "25ac27c5eb906855088fe03bb0ddde4c2050046d",
+      "encoding": "utf8-lf",
+      "bytes": 482,
+      "sha256": "34e02aca8344f21cc359dd079972489bd01352b00d9e54b955bbca84c9ebf62f"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Farm.hx",
+      "gitBlob": "321f04f64a054a83213ebf1a74064251a5e48a4c",
+      "encoding": "utf8-lf",
+      "bytes": 598,
+      "sha256": "b2e3dd2a91c7d012d80737d263d3c1f57f996df6769fa038520d90f517b12795"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/GateWard.hx",
+      "gitBlob": "d4f51765eee7525b97fa3605abe522c418121c59",
+      "encoding": "utf8-lf",
+      "bytes": 437,
+      "sha256": "9ac256c6848669f1d91a2ea22baa226e684000de69ca9ac1aeeaeb0c1f3b1e64"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Market.hx",
+      "gitBlob": "1da1c6ad55c81ca01b346d9e72bf7cbcd99b9946",
+      "encoding": "utf8-lf",
+      "bytes": 1804,
+      "sha256": "035c761f7d86e8f91c759efb8b5fdeb030fb67bc3647a1086ec10e435da29820"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/MerchantWard.hx",
+      "gitBlob": "f582ea829f46314ad3a15e5e8db22413543711f0",
+      "encoding": "utf8-lf",
+      "bytes": 723,
+      "sha256": "022772337a2947dcc0c27eac107d6fa4968b8a89c5d0603e912d9337a0acf83c"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/MilitaryWard.hx",
+      "gitBlob": "8fde76abb516a6ccfab7c7ba839605ede5197c4e",
+      "encoding": "utf8-lf",
+      "bytes": 909,
+      "sha256": "9f9aca82dc8fcc5131d1cba01e747a25f6d4d445b6b2ccf6824a1036916de463"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Park.hx",
+      "gitBlob": "df35937c3a8c977aeb8c654a2d11cb5cd1aa2b2d",
+      "encoding": "utf8-lf",
+      "bytes": 395,
+      "sha256": "1c59099763cd6b89961df9841367f94f32d4537a032eb04a1c8b56c84754211a"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/PatriciateWard.hx",
+      "gitBlob": "36352b3dbd93521080db1629349f08687c5f718e",
+      "encoding": "utf8-lf",
+      "bytes": 845,
+      "sha256": "e738b95b3f7477c1c5d10b74211a6f4155cb404f12decb133b8d6c4855850ae7"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Slum.hx",
+      "gitBlob": "1749037c0909ece6bc15f56403125a292fb5c631",
+      "encoding": "utf8-lf",
+      "bytes": 699,
+      "sha256": "c2ca6ecc21d550673a72ed5cbf62a6670695799eb100208917dba0b9aff4efe3"
+    },
+    {
+      "path": "Source/com/watabou/towngenerator/wards/Ward.hx",
+      "gitBlob": "cfc4f1836c56277f768a2e01c46ba178b1f10576",
+      "encoding": "utf8-lf",
+      "bytes": 5871,
+      "sha256": "855809f78a2da10ad2491d4cb9bff7acb4724d99b77fe8879d8ff625ae9f0dee"
+    },
+    {
+      "path": "Source/com/watabou/utils/ArrayExtender.hx",
+      "gitBlob": "b0e807f800b91fe94d12a70b41399ddcef7ea9dc",
+      "encoding": "utf8-lf",
+      "bytes": 3595,
+      "sha256": "3e65373699dc808fdf61160d253b7ca88335aafba1c1b424ec7483441af2b3e4"
+    },
+    {
+      "path": "Source/com/watabou/utils/BitmapUtils.hx",
+      "gitBlob": "444b0082201cc7e7a08be0e4aa9df69d8f1ad7e1",
+      "encoding": "utf8-lf",
+      "bytes": 569,
+      "sha256": "80346600816c804cc08fcc82dc805a6fa1f26a7e730cd3cd666f84a0cde91343"
+    },
+    {
+      "path": "Source/com/watabou/utils/DisplayObjectExtender.hx",
+      "gitBlob": "cca88ebd10c5623781d7b76b2cd75d9a5d8b6fee",
+      "encoding": "utf8-lf",
+      "bytes": 913,
+      "sha256": "69d7a1d8b0364d94d680e5b676be1ff38f8a81ab4d73847b8894bb8e2de931d3"
+    },
+    {
+      "path": "Source/com/watabou/utils/FloatExtender.hx",
+      "gitBlob": "0bb96a76606cdb5b0958ea488873cfd63d28ee61",
+      "encoding": "utf8-lf",
+      "bytes": 187,
+      "sha256": "ae3bd16816d7693487c11293136ab6aba81943c51a6b8280493f52ff16f5f3d4"
+    },
+    {
+      "path": "Source/com/watabou/utils/GraphicsExtender.hx",
+      "gitBlob": "49d14d8abd20c5fa0b7a66497a67335866e547db",
+      "encoding": "utf8-lf",
+      "bytes": 688,
+      "sha256": "71fadd9c38e006ddd86477b9a56117e6ffd1692137914cf648ad62bf89131c87"
+    },
+    {
+      "path": "Source/com/watabou/utils/MarkovChain.hx",
+      "gitBlob": "98989c0b1a6d007ec514b5b1b8b4529d63f9de05",
+      "encoding": "utf8-lf",
+      "bytes": 1279,
+      "sha256": "aab3d2313c5b208f70d3a7f2b9ad168a6119653831d47b7386ceaffcef5a5569"
+    },
+    {
+      "path": "Source/com/watabou/utils/MathUtils.hx",
+      "gitBlob": "d60840b0d8a1f24cb76f95d3e68ce3408241101a",
+      "encoding": "utf8-lf",
+      "bytes": 414,
+      "sha256": "eecdb17ad81418ab79259fe94ffbcac2155c52cb98b3a7d7c5e3c5430629d1c6"
+    },
+    {
+      "path": "Source/com/watabou/utils/NullUtils.hx",
+      "gitBlob": "46d3a716a271110f0a2c0ff81b22564f04361a12",
+      "encoding": "utf8-lf",
+      "bytes": 771,
+      "sha256": "a64e2c1ac7379c32e3c60fd3fb0e5a993955e6af471fa6288c5cf6be3f094a64"
+    },
+    {
+      "path": "Source/com/watabou/utils/ObjectPool.hx",
+      "gitBlob": "c77296d87cc26478749d5bf1eb58549375052308",
+      "encoding": "utf8-lf",
+      "bytes": 460,
+      "sha256": "f2a2cfc02c283d8b7231938c10951b9e4d70b5d6c57906c0912996dfa57b56a5"
+    },
+    {
+      "path": "Source/com/watabou/utils/Observable.hx",
+      "gitBlob": "858fcc01aed42a3996e6344321636ce283b8e3e0",
+      "encoding": "utf8-lf",
+      "bytes": 875,
+      "sha256": "cc6b957908f4ac08b2315a08d82bb6ab4c84af9c4db9193ab9de2c21ef6ec5e0"
+    },
+    {
+      "path": "Source/com/watabou/utils/PerlinNoise.hx",
+      "gitBlob": "4cc3a72c92465ba5c5a3c6ace5ea6308203b91b7",
+      "encoding": "utf8-lf",
+      "bytes": 4661,
+      "sha256": "a6bfc04150a82362e4465c9c33114ea06d9cc627cd90131721ebf0191c1caba4"
+    },
+    {
+      "path": "Source/com/watabou/utils/PixelCache.hx",
+      "gitBlob": "5b60414a6e85b268d606f8ca1f270608a1a38164",
+      "encoding": "utf8-lf",
+      "bytes": 349,
+      "sha256": "1757f87e86b0b936a25fdf0b2278eb154e0af7bd712cfd9f508b9c587d0f96a7"
+    },
+    {
+      "path": "Source/com/watabou/utils/PointExtender.hx",
+      "gitBlob": "76d00cd6b56d87b159e122113f375134637be469",
+      "encoding": "utf8-lf",
+      "bytes": 918,
+      "sha256": "5ad17b2fb0989035c8b5a6ec20179de85253f8a182611b006e374b85b8e054e1"
+    },
+    {
+      "path": "Source/com/watabou/utils/Random.hx",
+      "gitBlob": "89206a8a9fb3da3ee735078cd4198ad67594ad93",
+      "encoding": "utf8-lf",
+      "bytes": 914,
+      "sha256": "9c1e726b35db1ceae09c7f7ef9c192c553bce47d4d29a1256fca160855937e30"
+    },
+    {
+      "path": "Source/com/watabou/utils/Stopwatch.hx",
+      "gitBlob": "aabc9981153b73f76d321c5606ccf3a6455c744f",
+      "encoding": "utf8-lf",
+      "bytes": 480,
+      "sha256": "c7c5fe9912be2648bcb6516740c426f7d98fbe90996e87dc3de18441617fbe31"
+    },
+    {
+      "path": "Source/com/watabou/utils/StringUtils.hx",
+      "gitBlob": "3ae91af1551759ab588d4718c2e6f54398a28c31",
+      "encoding": "utf8-lf",
+      "bytes": 693,
+      "sha256": "572782dfcdee4212ff14bb7b832591a50dfdb3a16dc762a1077f2510b146ee69"
+    },
+    {
+      "path": "Source/com/watabou/utils/Updater.hx",
+      "gitBlob": "a38b20f9fdb5f4ebc71db4e63c3f8e5b213ee879",
+      "encoding": "utf8-lf",
+      "bytes": 3155,
+      "sha256": "499d9cac593796bd0c76be03f6f6522055e2946b012ca0c2e9352f9c8a70d287"
+    },
+    {
+      "path": "project.xml",
+      "gitBlob": "55992b626032d012b002d8df7d362dffe42d1bfe",
+      "encoding": "utf8-lf",
+      "bytes": 846,
+      "sha256": "ee03bdd597b33ea38e535ae78e849fd8af79352450e33ea0130b1a2927aa27cc"
+    }
+  ]
+}

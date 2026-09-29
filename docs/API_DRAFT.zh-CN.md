@@ -1,6 +1,6 @@
 # API 与数据接口草案
 
-本文件用于约定边界，尚未实现；示例类型不代表已经发布的 API。P1 / P2 验证后再冻结 v1 数据格式。
+P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。绘制接口仍是 P3 草案。算法版本为 `0.2.0-legacy`，尚未发布 npm 包。
 
 ## 生成入口
 
@@ -13,7 +13,7 @@ interface GenerateOptions {
   walls?: FeatureChoice;  // 默认 auto
   castle?: FeatureChoice; // 默认 auto
   plaza?: FeatureChoice;  // 默认 auto
-  maxAttempts?: number;   // 草案默认 20，允许 1..100
+  maxAttempts?: number;   // 默认 20，允许 1..100
 }
 
 interface GenerationError {
@@ -30,7 +30,7 @@ type GenerationResult =
 declare function generateTown(options: GenerateOptions): GenerationResult;
 ```
 
-`auto` 使用本次生成的实例随机数解析为布尔值。输出保留请求参数和实际解析的参数。兼容迁移应明确特征随机抽取顺序；显式指定开关时仍可消耗对应的随机抽样，以免无意改变后续序列。最终策略随生成器版本固定。
+`auto` 使用本次生成的实例随机数解析为布尔值。输出 request 补齐默认值，resolved 保留实际解析值。算法始终按 plaza、castle、walls 的顺序消耗三次随机数，再应用显式开关；后续重试继续使用本次局部随机流。此策略随算法版本固定。`generateTownSteps` 另提供可交错推进的阶段迭代器。
 
 范围外参数返回错误，不默默钳制。JSON 导入先做结构、有限数值、数量上限、引用和版本校验。程序缺陷不统一包装成可重试几何错误。
 
@@ -80,7 +80,7 @@ interface Gate { id: Id; wallId: Id; vertexId: Id }
 interface TownData {
   schemaVersion: "1";
   generatorVersion: string;
-  request: GenerateOptions;
+  request: Required<GenerateOptions>;
   resolved: {
     seed: number;
     size: number;
@@ -107,6 +107,8 @@ interface TownData {
 初版多边形不支持洞；若以后水域、庭院等要求带洞多边形，必须显式扩展协议。规范化输出采用固定字段与实体排序、统一顶点绕序，首期不为了减小文件而擅自舍入计算坐标。
 
 导出的地图是与内部可变结构分离的数据快照。调用者修改返回数据不会改变后续生成；绘制器视其为只读。
+
+P2 已实现 `serializeTown`、`deserializeTown`、`validateTown`，JSON 导入失败抛出 `TownDataError`。`createVertexIndex` 将共享 ID 解析到同一顶点；`hasVertexId` 与 `containsPoint` 分别表示拓扑成员关系和几何包含。单点零段路径不作为 Road 导出，城门入口仍保留。固定种子复现范围为同算法版本、同 JS 运行环境；跨环境保持同一地图请传 JSON，详见 [P2 浮点差异记录](P2_ACCEPTANCE.zh-CN.md)。
 
 ## 绘制接口
 

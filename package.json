@@ -1,0 +1,36 @@
+{
+  "name": "settlement-map-generator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "verify:upstream": "node scripts/verify-upstream.mjs",
+    "dev": "npm run dev --workspace @settlement/openfl-probe",
+    "build": "npm run build:core && npm run build --workspace @settlement/openfl-probe",
+    "build:core": "npm run build --workspace @settlement/core",
+    "generate": "node scripts/generate-town.mjs",
+    "test:p2": "npm run build:core && node --test tests/core/*.test.mjs",
+    "test:p2:browser": "npm run build:core && node --test tests/browser/core-baseline.test.mjs",
+    "preview": "npm run preview --workspace @settlement/openfl-probe",
+    "test:p1": "playwright test",
+    "legacy:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-legacy.ps1",
+    "legacy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-legacy.ps1",
+    "legacy:build:instrumented": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-legacy.ps1 -Instrumented",
+    "baseline:capture": "node scripts/capture-legacy.mjs",
+    "baseline:verify": "node scripts/capture-legacy.mjs --verify",
+    "verify:fixtures": "node scripts/verify-fixtures.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.1"
+  }
+}

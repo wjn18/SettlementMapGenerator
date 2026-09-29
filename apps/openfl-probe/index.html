@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>OpenFL · P1 接入实验</title></head>
+  <body>
+    <header><div><small>SETTLEMENT MAP GENERATOR / P1</small><h1>OpenFL 接入实验</h1></div><p>固定绘制样本 · 原版 Maroubra 位图字体</p></header>
+    <main><div id="map" aria-label="OpenFL 绘制样本"></div><aside>
+      <h2>绘制与交互</h2><p>多边形填色、双层道路描边、城墙与塔楼共用原版配色。将鼠标移到左上街区，检查透明区域的命中事件。</p>
+      <p id="hover" role="status">尚未命中街区</p>
+      <label>地图缩放 <input id="zoom" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+      <output id="metrics">加载中…</output>
+      <h2>实验边界</h2><p>本页使用固定几何验证 npm 绘制能力。原 Haxe 生成器的截图和六阶段数据另存于基线目录。</p>
+    </aside></main><script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
