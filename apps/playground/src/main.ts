@@ -1,6 +1,6 @@
-import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTown, normalizeMapName } from '@settlement/core';
+import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTown, normalizeMapName, estimatePopulation } from '@settlement/core';
 import { GenerationTask } from './generation-task';
-import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas } from '@settlement/core';
+import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas, PopulationDensity, PopulationEstimate } from '@settlement/core';
 import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance } from '@settlement/map-scene';
 import type { MapScene, Viewport, SceneOptions } from '@settlement/map-scene';
 import { rendererFactories, isRendererKind, exportSceneImage, download } from './renderers';
@@ -8,6 +8,7 @@ import type { RendererKind } from './renderers';
 import { bitmapTitle } from './bitmap-title';
 import { populateThemes } from './theme-select';
 import { districtLabels as labels, renderDistrictLegend } from './district-legend';
+import { renderPopulation, populationText } from './population-view';
 import './style.css';
 import './names.css';
 import './cartography.css';
@@ -18,6 +19,9 @@ const seed = $<HTMLInputElement>('seed'), size = $<HTMLSelectElement>('size'), t
 populateThemes(theme);
 const file = $<HTMLInputElement>('file'), tooltip = $('tooltip');
 const params = new URLSearchParams(location.search);
+const populationDensity = $<HTMLSelectElement>('population-density');
+if (['sparse', 'typical', 'dense'].includes(params.get('population') ?? '')) populationDensity.value = params.get('population')!;
+let population: PopulationEstimate | null = null;
 const showNames = $<HTMLInputElement>('show-names'), namesPanel = $('names-panel'), regionSelect = $<HTMLSelectElement>('region-select');
 showNames.checked = params.get('labels') === 'true' || (params.get('labels') !== 'false' && params.get('capture') !== '1');
 const showGrid = $<HTMLInputElement>('show-grid'), showScale = $<HTMLInputElement>('show-scale'), showCompass = $<HTMLInputElement>('show-compass'), gridSize = $<HTMLSelectElement>('grid-size');
@@ -65,6 +69,7 @@ function syncURL(): void {
   url.searchParams.set('harbor', String(town.request.harbor ?? true));
   url.searchParams.set('districts', String(districtColors.checked));
   url.searchParams.set('labels', String(showNames.checked));
+  url.searchParams.set('population', populationDensity.value);
   url.searchParams.set('grid', String(showGrid.checked)); url.searchParams.set('scale', String(showScale.checked)); url.searchParams.set('compass', String(showCompass.checked)); url.searchParams.set('gridSize', gridSize.value);
   const automatic = createTownAtlas(town), names = getTownAtlas(town);
   if (names.cityName !== automatic.cityName) url.searchParams.set('cityName', names.cityName); else url.searchParams.delete('cityName');
@@ -108,19 +113,33 @@ function selectRegion(): void {
 }
 function refreshNames(): void {
   if (!town) return;
-  atlas = getTownAtlas(town); regionByDistrict = new Map(); regionSummary = new Map();
-  for (const region of atlas.regions) {
-    const members = new Set(region.districtIds), buildings = town.buildings.filter(b => members.has(b.districtId)).length;
-    const kinds = [...new Set(town.districts.filter(d => members.has(d.id)).map(d => labels[d.wardType] ?? d.wardType))];
-    regionSummary.set(region.id, `${members.size} 个地块 · ${buildings} 栋建筑\n${kinds.join('、')}`);
-    for (const id of members) regionByDistrict.set(id, region.id);
-  }
+  atlas = getTownAtlas(town); regionByDistrict = new Map();
+  for (const region of atlas.regions) for (const id of region.districtIds) regionByDistrict.set(id, region.id);
+  refreshPopulation();
   const selected = regionSelect.value;
   regionSelect.replaceChildren(...atlas.regions.map(r => new Option(r.name, r.id)));
   if (atlas.regions.some(r => r.id === selected)) regionSelect.value = selected;
   $<HTMLInputElement>('city-name').value = atlas.cityName; selectRegion();
   $('map-title').replaceChildren(document.createTextNode(atlas.cityName + ' '), Object.assign(document.createElement('span'), { textContent: `№ ${town.resolved.seed}` }));
 }
+function refreshPopulation(): void {
+  if (!town) return;
+  population = estimatePopulation(town, { density: populationDensity.value as PopulationDensity });
+  renderPopulation(population); regionSummary = new Map();
+  for (const region of population.regions) {
+    const members = new Set(region.districtIds);
+    const kinds = [...new Set(town.districts.filter(d => members.has(d.id)).map(d => labels[d.wardType] ?? d.wardType))];
+    regionSummary.set(region.regionId, `${members.size} 个地块 · ${region.buildingCount} 栋建筑\n${populationText(region)}\n${kinds.join('、')}`);
+  }
+  $('region-details').textContent = regionSummary.get(regionSelect.value) ?? ''; tooltip.hidden = true;
+}
+populationDensity.addEventListener('change', () => { refreshPopulation(); syncURL(); if (town) status.textContent = '人口估算已更新 · 城市布局保持不变'; });
+$('population-report').addEventListener('click', () => {
+  if (!town || !population || !atlas) return;
+  const report = { kind: 'settlement-population-report', cityName: atlas.cityName, seed: town.resolved.seed, generatorVersion: town.generatorVersion, estimate: population };
+  download(new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' }), `settlement-${town.resolved.seed}-population.json`);
+  status.textContent = '人口估算报告已导出';
+});
 $('edit-names').addEventListener('click', () => { setNamesPanel(namesPanel.hidden); if (!namesPanel.hidden) $<HTMLInputElement>('city-name').focus(); });
 $('close-names').addEventListener('click', () => setNamesPanel(false));
 namesPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { setNamesPanel(false); $('edit-names').focus(); } });
@@ -240,7 +259,8 @@ host.addEventListener('pointermove', event => {
   if (district) {
     const regionId = regionByDistrict.get(district.id), region = atlas?.regions.find(r => r.id === regionId);
     const label = `${region ? region.name + '\n' : ''}${labels[district.wardType] ?? district.wardType} · ${district.withinCity ? '城区' : '城郊'}`;
-    tooltip.textContent = label + (region ? `\n${regionSummary.get(region.id)}` : ''); tooltip.style.left = `${Math.max(8, Math.min(x + 14, width - tooltip.offsetWidth - 10))}px`; tooltip.style.top = `${Math.max(8, Math.min(y + 14, height - tooltip.offsetHeight - 10))}px`;
+    const districtPopulation = population?.districts.find(d => d.districtId === district.id);
+    tooltip.textContent = label + (region ? `\n${regionSummary.get(region.id)}` : districtPopulation ? `\n${populationText(districtPopulation)}` : ''); tooltip.style.left = `${Math.max(8, Math.min(x + 14, width - tooltip.offsetWidth - 10))}px`; tooltip.style.top = `${Math.max(8, Math.min(y + 14, height - tooltip.offsetHeight - 10))}px`;
     $('hover-label').textContent = label.replace('\n', ' · ');
   } else $('hover-label').textContent = '将指针移入地图，查看街区用途';
 });
@@ -257,6 +277,7 @@ window.addEventListener('pagehide', () => { generation.cancel(); observer.discon
 // Acceptance-only instrumentation: never enabled on a normal preview URL.
 if (params.get('test') === '1') Object.defineProperty(window, '__playground', { value: {
   get town() { return town; }, get scene() { return scene; }, get viewport() { return viewport; }, get generationCount() { return generationCount; }, get revision() { return revision; },
+  get population() { return population; },
   load(value: string) { present(deserializeTown(value), 'imported'); }, setViewport: updateViewport,
   generate, cancel: () => generation.cancel(),
   pick(x: number, y: number) { return renderer.pick(x, y); },

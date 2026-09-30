@@ -13,7 +13,18 @@
       <p class="terrain-note">沿海与河流组合生成河口；道路和建筑沿岸布局。</p>
       <button id="generate" class="primary" type="submit">生成地图 <span>↗</span></button>
     </fieldset></form><button id="cancel" type="button" hidden>取消生成</button>
-    <section><div class="section-title">02 / 地图档案</div><div class="file-actions"><button id="import" type="button">导入 JSON</button><button id="export" type="button" disabled>导出 JSON</button></div><input type="file" id="file" accept=".json,application/json" hidden><p class="note">保存地图，留待下一次探索。</p></section>
+    <section class="population-card" aria-label="人口估算">
+      <div class="section-title">02 / 人口估算</div><div class="population-head"><strong id="population-total">—</strong><span>城区常住人口</span></div>
+      <p id="population-range"></p><p id="population-split"></p><p id="population-building-check"></p>
+      <label for="population-density">人口密度情景</label><select id="population-density"><option value="sparse">低密度 · 50 人/公顷</option><option value="typical" selected>基准密度 · 100 人/公顷</option><option value="dense">高密度 · 200 人/公顷</option></select>
+      <details id="population-details"><summary>区域人口与估算依据</summary>
+        <table aria-label="区域常住人口估算"><thead><tr><th scope="col">区域</th><th scope="col">分配人数</th></tr></thead><tbody id="population-regions"></tbody></table>
+        <p id="population-formula"></p><p id="population-assumptions"></p><p id="population-area"></p><p id="population-allocation"></p>
+        <ul id="population-limitations"></ul><div id="population-sources" aria-label="人口估算文献来源"></div>
+        <button id="population-report" type="button" disabled>导出人口报告 · JSON</button>
+      </details>
+    </section>
+    <section><div class="section-title">03 / 地图档案</div><div class="file-actions"><button id="import" type="button">导入 JSON</button><button id="export" type="button" disabled>导出 JSON</button></div><input type="file" id="file" accept=".json,application/json" hidden><p class="note">保存地图，留待下一次探索。</p></section>
     <section><label for="renderer">绘制方式</label><select id="renderer"><option value="canvas">Canvas 2D · 默认</option><option value="svg">SVG · 矢量</option><option value="openfl">OpenFL · 对照</option></select><div class="file-actions" style="margin-top:10px"><button id="export-image" type="button" disabled>导出 PNG</button><button id="export-svg" type="button" disabled>导出 SVG</button></div><p class="note">导出当前视口，保留地图配色。</p><a href="/compare.html" target="_blank" rel="noopener" style="color:inherit">并排比较 ↗</a></section>
     <section class="summary"><div class="section-title">本次生成</div><div class="stats"><div><strong id="district-count">—</strong><span>城区地块</span></div><div><strong id="building-count">—</strong><span>建筑</span></div></div><p id="resolved">正在绘制地图…</p></section>
     <footer><span class="status-dot"></span><span id="status" role="status" aria-live="polite">准备就绪</span></footer>

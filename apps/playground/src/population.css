@@ -1,0 +1,20 @@
+.population-card{border:1px solid #d4dbcd;border-radius:7px;padding:14px;background:#eaf0e580}
+.population-card .section-title{margin-bottom:9px;letter-spacing:1px}
+.population-head{display:flex;align-items:baseline;gap:7px;color:#2d5142}
+.population-head strong{font:30px Georgia,serif;font-variant-numeric:tabular-nums}
+.population-head span{font-size:10px}
+.population-card p{font-size:10px;line-height:1.7;margin:4px 0;color:#738474}
+.population-card>label{margin:12px 0 5px}
+.population-card select{font-size:11px;padding:7px 8px}
+.population-card details{margin-top:11px;font-size:10px;color:#536b5c}
+.population-card summary{cursor:pointer;line-height:1.7}
+.population-card table{width:100%;border-collapse:collapse;margin:9px 0;font-size:11px}
+.population-card th{text-align:left;font-weight:400;overflow-wrap:anywhere}
+.population-card td{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.population-card th,.population-card td{padding:5px 0;border-bottom:1px solid #d3ddcd}
+.population-card td{padding-left:6px}
+.population-card ul{padding-left:14px;line-height:1.8}
+.population-card a{color:#365e4c;overflow-wrap:anywhere;text-underline-offset:2px}
+#population-report{font-size:10px;padding:7px 8px;width:100%;margin-top:8px}
+#region-details{white-space:pre-line}
+@media(max-width:580px){.population-card{grid-column:1/-1}.population-head strong{font-size:28px}}

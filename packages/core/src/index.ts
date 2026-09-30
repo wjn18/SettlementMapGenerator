@@ -3,6 +3,8 @@ export { GENERATOR_VERSION } from './export.js';
 export { TERRAIN_GENERATOR_VERSION } from './terrain.js';
 export { createTownAtlas, getTownAtlas, renameTown, normalizeMapName } from './names.js';
 export type { NamedRegion, TownAtlas } from './types.js';
+export { estimatePopulation, POPULATION_DENSITIES, POPULATION_SOURCE } from './population.js';
+export type { PopulationDensity, PopulationOptions, PopulationCounts, PopulationStats, PopulationSource, DistrictPopulation, RegionPopulation, PopulationEstimate } from './population.js';
 export { distanceToPath, polygonTouchesRiver } from './river.js';
 export type { River, Bridge, Coast, CoastSide, Terrain, Dock } from './types.js';
 export { serializeTown, deserializeTown, validateTown, TownDataError, hasVertexId, containsPoint, createVertexIndex } from './serialization.js';

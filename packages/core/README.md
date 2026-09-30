@@ -44,6 +44,26 @@ for (;;) {
 
 `createTownAtlas(town)` 生成默认名称与分组；`getTownAtlas(town)` 返回独立命名副本，没有 atlas 的旧 JSON 可直接使用，且不会自动修改原始数据。`renameTown(town, 'city' | regionId, name)` 返回带新名称的地图，几何保持不变；`normalizeMapName` 将名称规范化为 NFC、清理首尾空白并校验 1–64 个字符，支持中英文，拒绝控制字符和换行。序列化会校验名称及区域成员，JSON 保留自定义地名。
 
+`estimatePopulation(town, options?)` 校验地图后，根据城区用地面积估算常住人口，返回独立的 `PopulationEstimate`。`total` 和 `city` 均只覆盖城区，含人数、低高情景、建筑数、建筑占地 `footprintAreaM2` 和城区用地 `urbanAreaM2`。城郊 `outskirts` 保留建筑统计，人数为 `null`（未估算）；地块 `districts` 和命名区域 `regions` 保存分配结果。它不修改地图、不消耗随机数，不改变生成算法或 JSON 格式；没有 atlas 的旧地图使用默认命名分组。
+
+```ts
+import { estimatePopulation } from '@settlement/core';
+
+const population = estimatePopulation(restored, {
+  density: 'typical', // sparse / typical / dense：50 / 100 / 200 人/公顷
+  metersPerUnit: 1, // 正数，默认 1 地图单位 = 1 米
+});
+console.log(population.total.residents, population.regions);
+```
+
+总人数为 `round(城区地块面积合计 × metersPerUnit² / 10_000 × 人/公顷)`。只统计 `withinCity` 地块，不用城墙或世界边界面积；当前生成地图的河海已从地块裁去，面积包含地块内道路、院落、市场、公园。以此近似已居住城市用地，不代表经历史校准的城市范围。低、高情景固定按 50、200 人/公顷计算并四舍五入，不随当前选中的情景再次放大。
+
+密度参考 [Eltjo Buringh (2021), *The Population of European Cities from 700 to 2000*, p. 8](https://researchdatajournal.org/article/download/24674/25863/63436)：以 57 座欧洲中世纪城市校准，采用 100 人/公顷的面积代理值，讨论约 50–200 人/公顷的差异。本模型据此设定情景，而非声称该区间是置信区间或适用于所有城市、时代和小村落的实际人口界限。`POPULATION_DENSITIES` 导出这三个密度，`POPULATION_SOURCE` 导出来源；`sources` 和 `assumptions` 在每次返回时提供独立副本。
+
+城区总人数按非市场、非公园的城区建筑占地比例分配至地块，再汇总到命名区域。此分配方式是实现假设，不是文献中的街区密度；不区分贫富人均面积，不假定楼层或入住率。低情景先用最大余数法分配，再依次分配基准、高情景的增量，保证每个地块的情景有序且人数之和等于城区总数。没有可分配建筑时，总人口仍按城区用地估算，`unallocated` 保存未能定位到区域的人数；区域人数之和加 `unallocated` 等于总数。城郊人数为 `null`，不能当零计入所谓全图总人口。
+
+人口模型版本改为 `modelVersion: '2'`，独立于地图版本。移除旧模型的 `occupancy`、`POPULATION_PROFILES`、`PopulationProfile`、`residentialFloorAreaM2`、`densityMultiplier` 和 `rangeFraction`；未知参数（包括旧 `occupancy`）及超出数值精度的结果抛出 `RangeError`，非法地图沿用 `TownDataError`。人口报告保存方法、密度、尺度、面积口径、分配假设、局限和文献。导入 JSON 保持原地图不变；旧版未裁切河道的地块面积可能含水面，报告会额外提示该限制。
+
 `serializeTown` 先验证再按固定字段键序输出 JSON，不舍入坐标；`deserializeTown` 只接受数据格式 `1`，验证数量、有限坐标、正面积环、所有引用、城门关系和 bounds；失败抛出带 `INVALID_TOWN_DATA` 代码的 `TownDataError`。`validateTown(unknown)` 可单独验证。导入上限为 6400 万字符、25 万顶点、每类 10 万建筑/特征、4096 地块、单环 4096 个引用，总引用数 200 万；不支持多边形洞。
 
 P4 使用 Dijkstra 在平滑前的拓扑图上寻找最短路径，等价路径按稳定节点 ID 决定；保留原首顶点距离行为。新版本会改变部分种子的输出，旧版地图请导入 JSON。生成道路保存旧版开放路径的顺序，两种道路宽度均为 2；只有一个顶点的零段路径不导出为道路，入口仍保留。普通小巷通过建筑留白表达。
