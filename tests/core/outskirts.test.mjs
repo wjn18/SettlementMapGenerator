@@ -51,26 +51,36 @@ function inside(p, ring) {
   return result;
 }
 
-test('seed 160625217: Market Quarter 2 has occupied interiors, valid geometry and deterministic output', () => {
+test('seed 160625217: waterfront residential districts retain occupied interiors and deterministic output', () => {
   const options = { seed: 160625217, size: 40, plaza: true, castle: true, walls: false, river: true, coast: 'east', harbor: true };
   const result = generateTown(options);
   assert.equal(result.ok, true, JSON.stringify(result.error));
-  const town = result.town;
-  validateTown(town);
-  const vertices = new Map(town.vertices.map(v => [v.id, v]));
-  const district = town.districts.find(d => d.id === 'd33');
-  assert.equal(district.wardType, 'Slum');
-  const ring = district.boundary.map(id => vertices.get(id));
-  const buildings = town.buildings.filter(b => b.districtId === district.id).map(b => b.boundary.map(id => vertices.get(id)));
-  const xs = ring.map(p => p.x), ys = ring.map(p => p.y);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  let covered = 0, total = 0;
-  for (let i = 0; i < 31; i++) for (let j = 0; j < 31; j++) {
-    const p = { x: x0 + (x1 - x0) * (0.3 + 0.4 * i / 30), y: y0 + (y1 - y0) * (0.3 + 0.4 * j / 30) };
-    if (inside(p, ring)) { total++; if (buildings.some(b => inside(p, b))) covered++; }
+  const town = result.town; validateTown(town);
+  const vertices = new Map(town.vertices.map(v => [v.id, new Point(v.x, v.y)]));
+  const residential = town.districts.filter(d => d.withinCity && ['Slum', 'CraftsmenWard', 'GateWard', 'MerchantWard', 'PatriciateWard'].includes(d.wardType));
+  let land = 0, roofs = 0, occupied = 0;
+  for (const d of residential) {
+    land += new Polygon(d.boundary.map(id => vertices.get(id))).square;
+    const buildings = town.buildings.filter(b => b.districtId === d.id);
+    if (buildings.length) occupied++;
+    roofs += buildings.reduce((sum, b) => sum + new Polygon(b.boundary.map(id => vertices.get(id))).square, 0);
   }
-  assert.ok(total > 0);
-  assert.ok(covered / total > 0.65, `central building coverage ${covered / total}; formerly only 0.255`);
-  assert.equal(town.atlas.cityName, 'Stonebridge');
+  assert.ok(occupied / residential.length > 0.95);
+  assert.ok(roofs / land > 0.4, `residential roof coverage ${roofs / land}`);
   assert.equal(serializeTown(generateTown(options).town), serializeTown(town));
+});
+
+
+test('open planned frontage keeps roadside houses and leaves distant backyards empty', () => {
+  const run = () => {
+    const patch = { shape: rect(0, 0, 40, 40), withinCity: true };
+    const model = { plannedLayout: true, context: new GenerationContext(42), streetWidth: (a, b) => a.x === 0 && b.x === 0 ? 3.8 : 0 };
+    const ward = new Ward('CraftsmenWard', model, patch);
+    const buildings = Array.from({ length: 16 }, (_, i) => rect(1 + i % 4 * 10, 1 + Math.floor(i / 4) * 10, 8, 8));
+    ward.geometry = [...buildings]; ward.filterOutskirts();
+    assert.ok(buildings.filter((_, i) => i % 4 === 0).every(b => ward.geometry.includes(b)));
+    assert.ok(buildings.filter((_, i) => i % 4 === 3).every(b => !ward.geometry.includes(b)));
+    return ward.geometry;
+  };
+  assert.deepEqual(run(), run());
 });

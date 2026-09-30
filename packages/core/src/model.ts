@@ -1,9 +1,10 @@
 // Port of building/Model, Patch and CurtainWall, GPL-3.0.
 import { GenerationContext, RetryableError, minimum, remove, sign } from './context.js';
-import { Point, Polygon } from './geometry.js';
+import { Point, Polygon, containsPolygon } from './geometry.js';
 import { Voronoi } from './voronoi.js';
 import { Topology } from './topology.js';
 import { Ward, createWard, wardRegistry, wardSequence } from './wards.js';
+import { polygonTouchesRiver } from './river.js';
 
 export class Patch {
   withinCity = false; withinWalls = false; ward: Ward | null = null;
@@ -14,12 +15,20 @@ export const stages = ['buildPatches', 'optimizeJunctions', 'buildWalls', 'build
 export type Stage = typeof stages[number];
 
 export class Model {
+  plannedLayout = false;
+  primaryEntrances = new Set<Point>();
+  roadWidths = new Map<Polygon, number>();
   patches: Patch[] = []; inner: Patch[] = [];
   citadel: Patch | null = null; plaza: Patch | null = null; center = new Point();
   border: CurtainWall | null = null; wall: CurtainWall | null = null;
   gates: Point[] = []; arteries: Polygon[] = []; streets: Polygon[] = []; roads: Polygon[] = [];
   cityRadius = 0;
   constructor(readonly context: GenerationContext, readonly size: number, readonly features: ResolvedFeatures) {}
+  streetWidth(a: Point, b: Point): number {
+    let width = 0;
+    for (const [path, value] of this.roadWidths) for (let i = 1; i < path.length; i++) if ((path[i - 1] === a && path[i] === b) || (path[i - 1] === b && path[i] === a)) width = Math.max(width, value);
+    return width;
+  }
   *build(): Generator<Stage> {
     // Preserve within-instance retry behavior for legacy stage equivalence.
     this.streets = []; this.roads = [];
@@ -119,7 +128,21 @@ export class Model {
       else if (p.ward === null) p.ward = createWard(random.bool(0.2) && p.shape.compactness >= 0.7 ? 'Farm' : 'Ward', this, p);
     }
   }
-  buildGeometry(): void { for (const p of this.patches) { this.context.step(); p.ward!.createGeometry(); } }
+  buildGeometry(): void {
+    for (const p of this.patches) {
+      this.context.step();
+      if (this.plannedLayout && p.shape.square < 8) continue;
+      p.ward!.createGeometry();
+      if (this.plannedLayout) {
+        const minX = Math.min(...p.shape.map(v => v.x)), maxX = Math.max(...p.shape.map(v => v.x));
+        const minY = Math.min(...p.shape.map(v => v.y)), maxY = Math.max(...p.shape.map(v => v.y));
+        const nearby = [...this.roadWidths].filter(([path, width]) => Math.max(...path.map(v => v.x)) + width / 2 >= minX && Math.min(...path.map(v => v.x)) - width / 2 <= maxX && Math.max(...path.map(v => v.y)) + width / 2 >= minY && Math.min(...path.map(v => v.y)) - width / 2 <= maxY);
+        // Reserve the entire road corridor, including the round caps of T
+        // junctions and bridge landings that an edge-only inset cannot express.
+        p.ward!.geometry = p.ward!.geometry.filter(shape => shape.square > 0.05 && containsPolygon(p.shape, shape) && !nearby.some(([path, width]) => polygonTouchesRiver(shape, { centerline: path, width, bankWidth: 0.05 })));
+      }
+    }
+  }
   patchByVertex(v: Point): Patch[] { return this.patches.filter(p => p.shape.includes(v)); }
   getNeighbour(patch: Patch, v: Point): Patch | null { const next = patch.shape.next(v); return this.patches.find(p => p.shape.findEdge(next, v) !== -1) ?? null; }
   getNeighbours(patch: Patch): Patch[] { return this.patches.filter(p => p !== patch && p.shape.borders(patch.shape)); }
@@ -139,16 +162,16 @@ export class CurtainWall {
   readonly shape: Polygon; readonly segments: boolean[]; readonly gates: Point[] = []; towers: Point[] = [];
   constructor(real: boolean, model: Model, readonly patches: Patch[], reserved: Point[]) {
     this.shape = patches.length === 1 ? patches[0].shape : Model.findCircumference(patches);
-    if (patches.length !== 1 && real) {
+    if (patches.length !== 1 && real && !model.plannedLayout) {
       const factor = Math.min(1, 40 / patches.length), smooth = this.shape.map(v => reserved.includes(v) ? v : this.shape.smoothVertex(v, factor));
       this.shape.forEach((v, i) => v.set(smooth[i]));
     }
     this.segments = this.shape.map(() => true);
-    const entrances = this.shape.filter(v => !reserved.includes(v) && (patches.length === 1 || patches.filter(p => p.shape.includes(v)).length > 1));
+    const entrances = this.shape.filter(v => !reserved.includes(v) && (patches.length === 1 || (model.plannedLayout ? model.primaryEntrances.has(v) : patches.filter(p => p.shape.includes(v)).length > 1)));
     if (!entrances.length) throw new RetryableError('Bad walled area shape!');
     do {
       const index = model.context.random.int(0, entrances.length), gate = entrances[index]; this.gates.push(gate);
-      if (real) {
+      if (real && !model.plannedLayout) {
         const outer = model.patchByVertex(gate).filter(p => !patches.includes(p));
         if (outer.length === 1 && outer[0].shape.length > 3) {
           const p = outer[0], w = this.shape.next(gate).subtract(this.shape.prev(gate)), out = new Point(w.y, -w.x);
@@ -156,11 +179,12 @@ export class CurtainWall {
           model.patches.splice(model.patches.indexOf(p), 1, ...p.shape.split(gate, farthest).map(s => new Patch(s)));
         }
       }
-      if (index === 0) { entrances.splice(0, 2); entrances.pop(); }
+      if (model.plannedLayout && patches.length > 1) entrances.splice(index, 1);
+      else if (index === 0) { entrances.splice(0, 2); entrances.pop(); }
       else if (index === entrances.length - 1) { entrances.splice(index - 1, 2); entrances.shift(); }
       else entrances.splice(index - 1, 3);
-    } while (entrances.length >= 3);
-    if (real) for (const gate of this.gates) gate.set(this.shape.smoothVertex(gate));
+    } while (model.plannedLayout && patches.length > 1 ? entrances.length > 0 : entrances.length >= 3);
+    if (real && !model.plannedLayout) for (const gate of this.gates) gate.set(this.shape.smoothVertex(gate));
   }
   buildTowers(): void { this.towers = this.shape.filter((v, i) => !this.gates.includes(v) && (this.segments[(i + this.shape.length - 1) % this.shape.length] || this.segments[i])); }
   getRadius(): number { let r = 0; for (const v of this.shape) r = Math.max(r, v.length); return r; }

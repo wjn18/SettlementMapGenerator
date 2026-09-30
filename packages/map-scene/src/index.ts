@@ -45,19 +45,23 @@ export interface SceneOptions { districtColors?: boolean; labels?: boolean; cart
 export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchment, options: SceneOptions = {}): MapScene {
   validateTown(town);
   validateTheme(palette);
+  // The road-first layout exports metre coordinates at four times its planning
+  // scale. Keep outline and wall symbols consistent with its building sizes.
+  if (['0.8.0', '0.9.0'].includes(town.generatorVersion)) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
   const zoning = options.districtColors === true;
   const detailedColors = zoning || [palette.roof, palette.tree, palette.water, palette.wall].some(color => color !== undefined);
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
   const points = (ids: readonly Id[]): Point2[] => ids.map(id => { const v = vertices.get(id)!; return { x: v.x, y: v.y }; });
   const commands: DrawCommand[] = [];
   const stroke = (color: string, width: number, cap: Stroke['cap'] = 'round', join: Stroke['join'] = 'round'): Stroke => ({ color, width, units: 'world', cap, join, miterLimit: 3 });
-  // City ground also colors the negative-space alleys between buildings.
+  // Color enclosed city ground; open suburbs keep the paper ground so empty
+  // yards do not expose the planning parcels as solid polygon tiles.
   for (const district of town.districts) {
     const green = district.wardType === 'Park' || district.wardType === 'Farm';
     const civic = district.wardType === 'Castle' || district.wardType === 'Market';
     const fill = zoning && (district.withinCity || green)
       ? mixColor(districtColor(palette, district.wardType), palette.paper, green ? 0.3 : civic ? 0.5 : 0.76)
-      : green ? palette.green : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
+      : green ? palette.green : town.generatorVersion === '0.9.0' && !district.withinWalls && !civic ? undefined : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
     if (fill) commands.push({ kind: 'polygon', points: points(district.boundary), fill });
   }
   for (const road of town.roads) if (road.kind === 'external' || palette.road !== undefined || zoning) {

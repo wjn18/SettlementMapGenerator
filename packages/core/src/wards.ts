@@ -1,5 +1,5 @@
 // Port of com.watabou.towngenerator.wards, GPL-3.0.
-import { GenerationContext, minimum } from './context.js';
+import { GenerationContext, RetryableError, minimum } from './context.js';
 import { Point, Polygon, distanceToLine, interpolate } from './geometry.js';
 import { bisect, radial, ring } from './cutter.js';
 import { CurtainWall } from './model.js';
@@ -21,7 +21,9 @@ export function createAlleys(context: GenerationContext, p: Polygon, minSq: numb
   const ratio = (1 - spread) / 2 + r.float() * spread;
   const angleSpread = Math.PI / 6 * gridChaos * (p.square < minSq * 4 ? 0 : 1), b = (r.float() - 0.5) * angleSpread;
   const buildings: Polygon[] = [];
-  for (const half of bisect(p, v, ratio, b, split ? 0.6 : 0)) {
+  const halves = bisect(p, v, ratio, b, split ? 0.6 : 0);
+  if (halves.length < 2 || halves.some(half => half.square >= p.square * (1 - 1e-9))) throw new RetryableError('Building subdivision made no progress');
+  for (const half of halves) {
     if (half.square < minSq * Math.pow(2, 4 * sizeChaos * (r.float() - 0.5))) {
       if (!r.bool(emptyProb)) { context.geometry(); buildings.push(half); }
     } else buildings.push(...createAlleys(context, half, minSq, gridChaos, sizeChaos, emptyProb, half.square > minSq / (r.float() * r.float()), depth + 1));
@@ -35,7 +37,9 @@ export function createOrthoBuilding(context: GenerationContext, poly: Polygon, m
     context.step(depth); const v0 = longest(p), v1 = p.next(v0), v = v1.subtract(v0);
     const ratio = 0.4 + r.float() * 0.2, p1 = interpolate(v0, v1, ratio), c = Math.abs(v.dot(c1)) < Math.abs(v.dot(c2)) ? c1 : c2;
     const buildings: Polygon[] = [];
-    for (const half of p.cut(p1, p1.add(c))) {
+    const halves = p.cut(p1, p1.add(c));
+    if (halves.length < 2 || halves.some(half => half.square >= p.square * (1 - 1e-9))) throw new RetryableError('Orthogonal subdivision made no progress');
+    for (const half of halves) {
       if (half.square < minSq * Math.pow(2, r.normal() * 2 - 1)) { if (r.bool(fill)) { context.geometry(); buildings.push(half); } }
       else buildings.push(...slice(half, depth + 1));
     }
@@ -50,6 +54,7 @@ export class Ward {
   readonly parameters: CommonParameters | undefined;
   constructor(readonly type: WardType, readonly model: Model, readonly patch: Patch) {
     this.parameters = wardRegistry[type].parameters?.(model.context);
+    if (model.plannedLayout && this.parameters) this.parameters = [Math.max(22, this.parameters[0]), Math.min(0.3, this.parameters[1]), Math.min(0.4, this.parameters[2]), Math.max(0.1, this.parameters[3])];
     if (type === 'Castle') this.wall = new CurtainWall(true, model, [patch], patch.shape.filter(v => model.patchByVertex(v).some(p => !p.withinCity)));
   }
   createGeometry(): void {
@@ -64,15 +69,44 @@ export class Ward {
   getCityBlock(): Polygon {
     const m = this.model, p = this.patch, inner = m.wall === null || p.withinWalls, inset: number[] = [];
     p.shape.forEdge((a, b) => {
+      if (m.plannedLayout) { inset.push(Math.max(0.7, m.streetWidth(a, b) / 2 + 0.3)); return; }
       if (m.wall?.bordersBy(p, a, b)) inset.push(1);
       else {
         let onStreet = inner && !!m.plaza && m.plaza.shape.findEdge(b, a) !== -1;
         if (!onStreet) onStreet = m.arteries.some(s => s.includes(a) && s.includes(b));
         inset.push((onStreet ? 2 : inner ? 1 : 0.6) / 2);
       }
-    }); return p.shape.isConvex() ? p.shape.shrink(inset) : p.shape.buffer(inset);
+    });
+    if (m.plannedLayout) {
+      // T junctions belong to the road graph, not to the shape used by the
+      // polygon insetter. Collinear corners otherwise create zero-width loops.
+      const keep = p.shape.map((v, i) => ({ v, i })).filter(({ v, i }) => {
+        const before = v.subtract(p.shape[(i + p.shape.length - 1) % p.shape.length]), after = p.shape[(i + 1) % p.shape.length].subtract(v);
+        return Math.abs(before.x * after.y - before.y * after.x) > 1e-7 * before.length * after.length;
+      });
+      const shape = new Polygon(keep.map(k => k.v));
+      const distances = keep.map((k, i) => {
+        const end = keep[(i + 1) % keep.length].i; let value = 0, j = k.i;
+        do { value = Math.max(value, inset[j]); j = (j + 1) % inset.length; } while (j !== end);
+        return value;
+      });
+      return shape.isConvex() ? shape.shrink(distances) : shape.buffer(distances);
+    }
+    return p.shape.isConvex() ? p.shape.shrink(inset) : p.shape.buffer(inset);
   }
   private filterOutskirts(): void {
+    if (this.model.plannedLayout) {
+      const m = this.model, p = this.patch;
+      const frontages = p.shape.map((a, i) => ({ a, b: p.shape[(i + 1) % p.shape.length] })).filter(e => m.streetWidth(e.a, e.b) > 0);
+      if (!frontages.length) { this.geometry = []; return; }
+      const distance = (v: Point) => Math.min(...frontages.map(({ a, b }) => {
+        const d = b.subtract(a), t = Math.max(0, Math.min(1, v.subtract(a).dot(d) / d.dot(d)));
+        return Point.distance(v, a.add(d.scale(t)));
+      }));
+      const depth = Math.max(9, Math.sqrt(p.shape.square) * 0.42);
+      this.geometry = this.geometry.filter(b => distance(b.center) < depth * (0.75 + m.context.random.float() * 0.65));
+      return;
+    }
     const m = this.model, p = this.patch, edges: { x: number; y: number; dx: number; dy: number; d: number }[] = [];
     const addEdge = (a: Point, b: Point, factor: number): void => {
       const dx = b.x - a.x, dy = b.y - a.y, distances = new Map<Point, number>();
@@ -131,7 +165,10 @@ export const wardRegistry: Readonly<Record<WardType, WardStrategy>> = Object.fre
   },
   Castle: { geometry: w => {
     const p = w.patch.shape.shrinkEq(4), context = w.model.context;
-    return [createCastleFootprint(context, p, () => createOrthoBuilding(context, p, Math.max(Math.sqrt(p.square) * 4, w.model.size > 40 ? p.square / 8 : 0), 0.6))];
+    // At the new city sizes, cap subdivision density so a large keep still
+    // merges into one regular footprint instead of many disconnected cells.
+    const minSquare = Math.max(Math.sqrt(p.square) * 4, w.model.plannedLayout ? p.square / 6 : w.model.size > 40 ? p.square / 8 : 0);
+    return [createCastleFootprint(context, p, () => createOrthoBuilding(context, p, minSquare, 0.6))];
   } },
   Market: {
     rate: (m, p) => m.inner.some(n => n.ward?.type === 'Market' && n.shape.borders(p.shape)) ? Infinity : m.plaza ? p.shape.square / m.plaza.shape.square : p.shape.distance(m.center),

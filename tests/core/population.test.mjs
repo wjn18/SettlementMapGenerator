@@ -99,7 +99,7 @@ test('invalid assumptions, obsolete floor-model options and invalid geometry are
   const bad = structuredClone(town); bad.buildings[0].boundary[0] = 'missing'; assert.throws(() => estimatePopulation(bad));
 });
 
-for (const options of [{ seed: 42, size: 24 }, { seed: 1, size: 6 }, { seed: 12345, size: 40 }, { seed: 42, size: 24, river: true, coast: 'east', castle: true }])
+for (const options of [{ seed: 42, size: 24 }, { seed: 1, size: 6 }, { seed: 12345, size: 40 }, { seed: 42, size: 24, river: true, coast: 'east', castle: true }, { seed: 42, size: 100, coast: 'east', river: true, harbor: true, castle: true, plaza: true, walls: false }])
 test(`generated and legacy maps yield deterministic area estimates ${JSON.stringify(options)}`, () => {
   const result = generateTown(options); assert.equal(result.ok, true);
   const town = result.town, before = serializeTown(town), estimate = estimatePopulation(town);

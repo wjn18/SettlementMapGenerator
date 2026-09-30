@@ -65,7 +65,7 @@ test('generated inland, river, coastal and estuary castles export one regular bu
       assert.equal(buildings.length, 1, JSON.stringify(options));
       const index = new Map(town.vertices.map(v => [v.id, new Point(v.x,v.y)]));
       const outline = new Polygon(buildings[0].boundary.map(id => index.get(id)));
-      const block = new Polygon(district.boundary.map(id => index.get(id))).shrinkEq(4);
+      const block = new Polygon(district.boundary.map(id => index.get(id))).shrinkEq(16);
       assert(isRegularCastleFootprint(outline, block), JSON.stringify(options));
       assert.equal(new Set(outline.map(p => `${p.x},${p.y}`)).size, outline.length);
       assert.deepEqual(deserializeTown(serializeTown(town)), town);
@@ -82,7 +82,7 @@ test('rejecting a castle site lets the estuary retry without retaining removed d
     };
     const result = generateTown({ seed: 42, size: 40, castle: true, coast: 'west', river: true });
     assert(rejected); assert.equal(result.ok, true, JSON.stringify(result));
-    validateTown(result.town); assert(result.town.resolved.attempts > 2);
+    validateTown(result.town); assert(result.town.resolved.attempts > 1);
     const district = result.town.districts.find(d => d.wardType === 'Castle');
     assert.equal(result.town.buildings.filter(b => b.districtId === district.id).length, 1);
   } finally { Ward.prototype.createGeometry = original; }

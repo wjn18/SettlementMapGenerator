@@ -24,7 +24,7 @@ test('coast and estuary controls, waterfront picking and complete image/JSON exp
     await page.locator(format === 'svg' ? '#export-svg' : format === 'png' ? '#export-image' : '#export').click();
     const bytes = readFileSync((await (await pending).path())!);
     if (format === 'json') expect(JSON.parse(bytes.toString())).toEqual(town);
-    else if (format === 'svg') { expect(bytes.toString()).toContain('#59a3b2'); expect(bytes.toString()).toContain('stroke-width="1.5"'); }
+    else if (format === 'svg') { expect(bytes.toString()).toContain('#59a3b2'); expect(bytes.toString()).toContain(`stroke-width="${town.terrain.docks[0].width}"`); }
     else expect(PNG.sync.read(bytes).width).toBeGreaterThan(500);
   }
   await page.locator('#harbor').selectOption('false'); await page.locator('#generate').click();

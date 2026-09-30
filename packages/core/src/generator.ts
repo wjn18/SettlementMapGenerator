@@ -1,6 +1,6 @@
 import { GenerationContext, RetryableError, ResourceLimitError } from './context.js';
 import { Model } from './model.js';
-import { exportTown } from './export.js';
+import { SkeletonModel, scalePlannedTown } from './skeleton.js';
 import { buildTerrainTown } from './terrain.js';
 import { createTownAtlas } from './names.js';
 import { normalizeOptions, OptionsError } from './options.js';
@@ -17,6 +17,7 @@ export function generateTownSteps(options: GenerateOptions): Generator<Generatio
     })();
   }
   return (function* (): Generator<GenerationProgress, GenerationResult, void> {
+    // Preserve bounded retry/geometry headroom for the supported city sizes.
     const areaFactor = Math.max(1, (request.size / 40) ** 2);
     const context = new GenerationContext(request.seed, Math.ceil(2_000_000 * areaFactor), Math.ceil(50_000 * areaFactor)), r = context.random;
     const auto = { plaza: r.bool(), castle: r.bool(), walls: r.bool() };
@@ -28,15 +29,12 @@ export function generateTownSteps(options: GenerateOptions): Generator<Generatio
     let message = '', lastStage = '';
     for (let attempt = 1; attempt <= request.maxAttempts; attempt++) {
       try {
-        if (request.river || request.coast) {
-          const terrain = buildTerrainTown(new Model(context, request.size, model.features), request, attempt);
-          for (;;) { const next = terrain.next(); if (next.done) { next.value.atlas = createTownAtlas(next.value); return { ok: true, town: next.value }; } yield { attempt, stage: next.value }; }
+        const terrain = buildTerrainTown(new SkeletonModel(context, request.size, model.features), request, attempt);
+        for (;;) {
+          const next = terrain.next();
+          if (next.done) { scalePlannedTown(next.value); next.value.atlas = createTownAtlas(next.value); return { ok: true, town: next.value }; }
+          yield { attempt, stage: next.value };
         }
-        for (const stage of model.build()) yield { attempt, stage };
-        context.stage = 'export';
-        const town = exportTown(model, request, attempt);
-        town.atlas = createTownAtlas(town);
-        return { ok: true, town };
       } catch (e) {
         if (e instanceof ResourceLimitError) return { ok: false, error: { code: 'RESOURCE_LIMIT', stage: context.stage, message: e.message, attempts: attempt } };
         if (!(e instanceof RetryableError)) throw e;

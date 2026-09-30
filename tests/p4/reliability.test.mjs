@@ -6,21 +6,18 @@ import { Point, Polygon, containsPolygon } from '../../packages/core/dist/geomet
 import { pointInRing } from '../../packages/map-scene/dist/index.js';
 import { installLegacyPaths } from '../core/legacy-path.mjs';
 
-test('public generation uses new routing; archived FIFO is confined to the test harness', () => {
+test('road-first generation is independent of the archived patch routing harness', () => {
   const current=generateTown({seed:42,size:24});
   const restore=installLegacyPaths();let archived;
   try {archived=generateTown({seed:42,size:24});} finally {restore();}
-  assert(current.ok&&archived.ok);assert.notDeepEqual(current.town.roads,archived.town.roads);
+  assert(current.ok&&archived.ok);assert.deepEqual(current.town.roads,archived.town.roads);
   assert.deepEqual(generateTown({seed:42,size:24}),current);
 });
 
-test('farm overflow regressions fail explicitly at one attempt and recover with bounded retries', () => {
+test('former farm overflow sites generate contained geometry with bounded attempts', () => {
   for (const options of [{seed:708675149,size:6},{seed:2147483646,size:6,plaza:true,castle:false,walls:true}]) {
-    const failed=generateTown({...options,maxAttempts:1});
-    assert.equal(failed.ok,false);assert.equal(failed.error.code,'GENERATION_FAILED');
-    assert.equal(failed.error.stage,'export');assert.match(failed.error.message,/outside its district/);
-    const result=generateTown(options);assert.equal(result.ok,true);assert(result.town.resolved.attempts>1);
-    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.7.0');
+    const result=generateTown(options);assert.equal(result.ok,true);assert(result.town.resolved.attempts<=20);
+    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.9.0');
     const vertices=new Map(result.town.vertices.map(v=>[v.id,v]));
     for(const b of result.town.buildings) {
       const district=result.town.districts.find(d=>d.id===b.districtId);

@@ -42,7 +42,11 @@ test('six city palettes switch without regeneration, survive reload, and export 
         expect(xml).toContain('<svg');
       } else {
         const png = PNG.sync.read(bytes);
-        expect([...png.data.subarray(0, 4)]).toEqual([209, 180, 136, 255]);
+        // A zoomed viewport can have farmland at the corner. Check visible
+        // paper pixels across the export, independent of the generated outline.
+        let paperPixels = 0;
+        for (let i = 0; i < png.data.length; i += 4) if (png.data[i] === 209 && png.data[i + 1] === 180 && png.data[i + 2] === 136 && png.data[i + 3] === 255) paperPixels++;
+        expect(paperPixels).toBeGreaterThan(png.width * png.height * 0.05);
         expect(png.width).toBeGreaterThan(500);
       }
       expect(await snapshot()).toEqual(before);

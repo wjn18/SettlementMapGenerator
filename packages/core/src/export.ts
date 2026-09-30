@@ -3,7 +3,7 @@ import type { Point, Polygon } from './geometry.js';
 import { containsPolygon } from './geometry.js';
 import type { Model, CurtainWall } from './model.js';
 import type { TownData, NormalizedOptions, Vertex, Wall, Gate, Building, Feature, Road } from './types.js';
-export const GENERATOR_VERSION = '0.7.0';
+export const GENERATOR_VERSION = '0.9.0';
 export function exportTown(model: Model, request: NormalizedOptions, attempts: number): TownData {
   const vertices: Vertex[] = [], ids = new Map<Point, string>();
   const vertex = (p: Point): string => {
@@ -30,7 +30,7 @@ export function exportTown(model: Model, request: NormalizedOptions, attempts: n
   }
   const roads: Road[] = [];
   for (const [kind, paths] of [['street', model.streets], ['external', model.roads]] as const) {
-    for (const path of paths) if (path.length > 1) roads.push({ id: `r${roads.length}`, kind, vertexIds: Array.from(path, vertex), width: 2 });
+    for (const path of paths) if (path.length > 1) roads.push({ id: `r${roads.length}`, kind, vertexIds: Array.from(path, vertex), width: model.roadWidths.get(path) ?? 2 });
   }
   const walls: Wall[] = [], gates: Gate[] = [];
   function wall(value: CurtainWall, kind: 'city' | 'castle'): void {

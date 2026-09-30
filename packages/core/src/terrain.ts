@@ -1,6 +1,7 @@
 import { Random, RetryableError } from './context.js';
 import { Point, Polygon, containsPolygon } from './geometry.js';
 import { Model, Patch } from './model.js';
+import { SkeletonModel } from './skeleton.js';
 import { GraphNode, shortestPath } from './pathfinding.js';
 import { createWard } from './wards.js';
 import { exportTown } from './export.js';
@@ -14,7 +15,7 @@ interface Plan {
   local(p: Point2): Point; world(p: Point2): Point;
 }
 interface ShoreEdge { path: Polygon; patch: Patch; kind: 'coast' | 'river' }
-export const TERRAIN_GENERATOR_VERSION = '0.7.0';
+export const TERRAIN_GENERATOR_VERSION = '0.9.0';
 const wet = (p: Point2, plan: Plan): boolean => plan.cuts.some(ring => inRing(ring, p));
 const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => {
   if (shape.some(p => inRing(cut, p)) || cut.some(p => inRing(shape, p))) return true;
@@ -24,7 +25,7 @@ const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => 
 /** Plan water before streets, ward assignment or building subdivision. All
  * later topology is constructed from the clipped, shared land boundaries. */
 function planWater(model: Model, request: NormalizedOptions): Plan {
-  const radius = Math.max(...model.inner.flatMap(p => p.shape.map(v => v.length)));
+  const radius = model instanceof SkeletonModel ? model.planningRadius : Math.max(...model.inner.flatMap(p => p.shape.map(v => v.length)));
   const extent = radius * 4.5, random = new Random((request.seed % 2147483645) + 1);
   let side: CoastSide = request.coast && request.coast !== 'auto' ? request.coast : 'east';
   if (request.coast === 'auto' && model.citadel) {
@@ -117,19 +118,32 @@ function buildLandRoads(model: Model, plan: Plan): { shores: ShoreEdge[]; bridge
   const shores: ShoreEdge[] = [], bridges: Polygon[] = [], edges = new Map<string, Polygon>();
   const nodes = new Map<Point, GraphNode>(), nodePoints = new Map<GraphNode, Point>();
   const node = (p: Point) => { if (!nodes.has(p)) { const n = new GraphNode(nodes.size); nodes.set(p, n); nodePoints.set(n, p); } return nodes.get(p)!; };
-  const link = (a: Point, b: Point) => node(a).link(node(b), Point.distance(a, b));
+  const urbanNodes = new Map<Point, GraphNode>(), urbanPoints = new Map<GraphNode, Point>();
+  const urbanNode = (p: Point) => { if (!urbanNodes.has(p)) { const n = new GraphNode(urbanNodes.size); urbanNodes.set(p, n); urbanPoints.set(n, p); } return urbanNodes.get(p)!; };
+  const urbanLink = (a: Point, b: Point) => urbanNode(a).link(urbanNode(b), Point.distance(a, b));
+  const guideNodes = new Map<Point, GraphNode>(), guidePoints = new Map<GraphNode, Point>();
+  const guideNode = (p: Point) => { if (!guideNodes.has(p)) { const n = new GraphNode(guideNodes.size); guideNodes.set(p, n); guidePoints.set(n, p); } return guideNodes.get(p)!; };
+  const link = (a: Point, b: Point) => {
+    node(a).link(node(b), Point.distance(a, b));
+    if (model instanceof SkeletonModel && model.guideWidth(a, b) > 2) guideNode(a).link(guideNode(b), Point.distance(a, b));
+  };
   const key = (a: Point, b: Point) => [pointKey(a), pointKey(b)].sort().join('/');
   for (const patch of model.patches) patch.shape.forEdge((a, b) => {
     link(a, b);
     if (!patch.withinCity) return;
+    urbanLink(a, b);
     const edgeKey = key(a, b);
+    const mid = mixPoint(a, b, 0.5);
+    const shoreline = plan.cuts.some(cut => distanceToPath(mid, [...cut, cut[0]]) < 0.001);
+    if (model instanceof SkeletonModel && !shoreline && model.guideWidth(a, b) < 2 && !model.getNeighbour(patch, a)?.withinCity) return;
     if (!edges.has(edgeKey)) edges.set(edgeKey, new Polygon([a, b]));
-    const mid = mixPoint(a, b, 0.5), path = edges.get(edgeKey)!;
+    const path = edges.get(edgeKey)!;
     if (plan.coastCut && distanceToPath(mid, [...plan.coastCut, plan.coastCut[0]]) < 0.001) shores.push({ path, patch, kind: 'coast' });
     else if (plan.riverCut && distanceToPath(mid, [...plan.riverCut, plan.riverCut[0]]) < 0.001) shores.push({ path, patch, kind: 'river' });
   });
   if (plan.river) {
-    const bankPoints = [...new Set(shores.filter(s => s.kind === 'river').flatMap(s => [...s.path]))];
+    const shorePaths = new Set(shores.map(s => s.path));
+    const bankPoints = [...new Set(shores.filter(s => s.kind === 'river' && s.patch.shape.square > 60).flatMap(s => [...s.path]))].filter(p => [...edges.values()].some(path => path.includes(p) && !shorePaths.has(path)));
     const candidates: { path: Polygon; x: number; length: number }[] = [];
     for (let i = 0; i < bankPoints.length; i++) for (let j = i + 1; j < bankPoints.length; j++) {
       model.context.step();
@@ -143,23 +157,74 @@ function buildLandRoads(model: Model, plan: Plan): { shores: ShoreEdge[]; bridge
     const selected: typeof candidates = [];
     for (const candidate of candidates) {
       if (selected.some(other => Math.abs(other.x - candidate.x) < plan.radius * 0.65)) continue;
-      selected.push(candidate); bridges.push(candidate.path); link(candidate.path[0], candidate.path[1]);
+      selected.push(candidate); bridges.push(candidate.path); link(candidate.path[0], candidate.path[1]); urbanLink(candidate.path[0], candidate.path[1]);
       edges.set(key(candidate.path[0], candidate.path[1]), candidate.path);
       if (selected.length >= Math.max(1, Math.ceil(model.size / 18))) break;
     }
     if (!bridges.length) throw new RetryableError('No safe crossing between the inhabited riverbanks');
   }
+  if (model instanceof SkeletonModel) {
+    // Omit unused perimeter streets, but keep all actual street fragments
+    // connected. Add only the missing land-boundary links between components.
+    for (;;) {
+      model.context.step();
+      const adjacency = new Map<Point, Point[]>();
+      for (const path of edges.values()) for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        if (!adjacency.has(a)) adjacency.set(a, []); if (!adjacency.has(b)) adjacency.set(b, []);
+        adjacency.get(a)!.push(b); adjacency.get(b)!.push(a);
+      }
+      const seen = new Set<Point>(), groups: Point[][] = [];
+      for (const first of adjacency.keys()) if (!seen.has(first)) {
+        const group: Point[] = [], queue = [first];
+        while (queue.length) { const p = queue.pop()!; if (seen.has(p)) continue; seen.add(p); group.push(p); queue.push(...adjacency.get(p)!); }
+        groups.push(group);
+      }
+      if (groups.length < 2) break;
+      groups.sort((a, b) => b.length - a.length);
+      let pair: [Point, Point] | undefined, distance = Infinity;
+      for (const a of groups[0]) for (const b of groups[1]) if (Point.distance(a, b) < distance) { pair = [a, b]; distance = Point.distance(a, b); }
+      const path = shortestPath(urbanNode(pair![0]), urbanNode(pair![1]), []);
+      if (!path) throw new RetryableError('No inhabited land connection between street fragments');
+      const points = path.map(n => urbanPoints.get(n)!);
+      for (let i = 1; i < points.length; i++) {
+        const edgeKey = key(points[i - 1], points[i]);
+        if (!edges.has(edgeKey)) edges.set(edgeKey, new Polygon([points[i - 1], points[i]]));
+      }
+    }
+  }
   model.streets = [...edges.values()]; model.arteries = [...model.streets]; model.roads = [];
+  model.roadWidths.clear();
+  if (model instanceof SkeletonModel) for (const path of model.streets) {
+    const shore = shores.some(s => s.path === path), bridgeJunction = bridges.some(b => path.some(p => b.includes(p)));
+    model.roadWidths.set(path, Math.max(model.guideWidth(path[0], path[1]), bridges.includes(path) || (shore && bridgeJunction) ? 3.8 : shore ? 2.6 : 1.4));
+  }
   // Routes to the countryside use the dry-land graph, with bridge edges already present.
   const cityPoints = new Set(model.patches.filter(p => p.withinCity).flatMap(p => [...p.shape]));
   const blocked = [...(model.wall?.shape ?? []), ...(model.citadel?.shape ?? [])].filter(p => !model.gates.includes(p) && nodes.has(p)).map(node);
   const starts = model.border!.gates.filter(p => nodes.has(p));
-  for (const start of starts.slice(0, 5)) {
-    const direction = start.norm(1);
-    const candidates = [...nodes.keys()].filter(p => !cityPoints.has(p)).sort((a, b) => b.dot(direction) - a.dot(direction));
+  for (const start of starts.slice(0, model.plannedLayout ? starts.length : 5)) {
+    const direction = start.subtract(model.center).norm(1);
+    let candidates = [...nodes.keys()].filter(p => !cityPoints.has(p));
+    if (model instanceof SkeletonModel) {
+      const on = (p: Point, a: Point, b: Point) => {
+        const d = b.subtract(a), t = p.subtract(a).dot(d) / d.dot(d);
+        return t >= -1e-7 && t <= 1 + 1e-7 && Point.distance(p, a.add(d.scale(t))) < 1e-5;
+      };
+      const routes = model.guides.filter(g => g.path.slice(1).some((b, i) => on(start, g.path[i], b)));
+      candidates = candidates.filter(p => routes.some(g => g.path.slice(1).some((b, i) => on(p, g.path[i], b))));
+    }
+    candidates.sort((a, b) => b.dot(direction) - a.dot(direction));
     for (const end of candidates.slice(0, 12)) {
-      const path = shortestPath(node(start), node(end), blocked);
-      if (path) { model.roads.push(new Polygon(path.reverse().map(n => nodePoints.get(n)!))); break; }
+      if (model instanceof SkeletonModel) {
+        if (!guideNodes.has(start) || !guideNodes.has(end)) continue;
+        const forbidden = [...cityPoints].filter(p => p !== start && guideNodes.has(p)).map(p => guideNodes.get(p)!);
+        const path = shortestPath(guideNodes.get(start)!, guideNodes.get(end)!, forbidden);
+        if (path) { const route = new Polygon(path.reverse().map(n => guidePoints.get(n)!)); model.roads.push(route); model.roadWidths.set(route, 3.8); break; }
+      } else {
+        const path = shortestPath(node(start), node(end), blocked);
+        if (path) { model.roads.push(new Polygon(path.reverse().map(n => nodePoints.get(n)!))); break; }
+      }
     }
   }
   // Every inhabited land component must be reachable from the same road network.
@@ -193,15 +258,24 @@ function trimWalls(town: TownData, plan: Plan): void {
 
 export function* buildTerrainTown(model: Model, request: NormalizedOptions, attempts: number): Generator<string, TownData, void> {
   for (const stage of ['buildPatches', 'optimizeJunctions'] as const) { model.context.stage = stage; model[stage](); yield stage; }
-  model.context.stage = 'terrain'; const plan = planWater(model, request); reserveLandmarks(model, plan); yield 'terrain';
-  model.context.stage = 'buildWalls'; model.buildWalls(); clipDistricts(model, plan); yield 'buildWalls';
+  model.context.stage = 'terrain'; const plan = planWater(model, request); yield 'terrain';
+  if (model instanceof SkeletonModel) {
+    model.context.stage = 'planRoadSkeleton'; yield 'planRoadSkeleton';
+    model.context.stage = 'subdivideDistricts'; model.subdivideDistricts(plan.cuts); yield 'subdivideDistricts';
+  }
+  reserveLandmarks(model, plan);
+  // The wall follows the older developed core, with younger frontage outside it.
+  model.context.stage = 'buildWalls'; model.buildWalls(); clipDistricts(model, plan);
+  if (model instanceof SkeletonModel) model.fitLandDistricts();
+  yield 'buildWalls';
   model.context.stage = 'buildStreets'; const { shores, bridges } = buildLandRoads(model, plan); yield 'buildStreets';
   model.context.stage = 'createWards'; model.createWards();
   if (plan.coast && request.harbor !== false) for (const { patch, kind } of shores) {
     if (kind === 'coast' && patch !== model.citadel && patch !== model.plaza) patch.ward = createWard('Harbor', model, patch);
   }
   yield 'createWards'; model.context.stage = 'buildGeometry';
-  for (const patch of model.patches) {
+  if (model.plannedLayout) model.buildGeometry();
+  else for (const patch of model.patches) {
     model.context.step();
     if (patch.shape.square < 8) continue;
     patch.ward!.createGeometry();
@@ -211,19 +285,20 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
   yield 'buildGeometry'; model.context.stage = 'export';
   const town = exportTown(model, request, attempts);
   town.generatorVersion = TERRAIN_GENERATOR_VERSION;
+  if (!request.river && !request.coast) return town;
   const plain = (p: Point2): Point2 => ({ x: p.x, y: p.y });
   town.terrain = { ...(plan.coast ? { coast: { ...plan.coast, shoreline: plan.coast.shoreline.map(plain), water: plan.coast.water.map(plain) } } : {}), waterfronts: [], docks: [] };
   const index = new Map(town.vertices.map(v => [v.id, v]));
   const roadFor = (path: Polygon) => town.roads.find(r => r.kind === 'street' && r.vertexIds.length === path.length && r.vertexIds.every((id, i) => pointKey(index.get(id)!) === pointKey(path[i])))!;
   for (const shore of shores) {
-    const road = roadFor(shore.path); road.width = 2.6;
+    const road = roadFor(shore.path); road.width = Math.max(road.width, 2.6);
     if (!town.terrain.waterfronts.some(w => w.roadId === road.id)) town.terrain.waterfronts.push({ roadId: road.id, kind: shore.kind });
   }
   if (plan.river) {
     town.river = { ...plan.river, centerline: plan.river.centerline.map(plain), surface: plan.river.surface!.map(plain), bridges: [] };
     for (const path of bridges) {
-      const road = roadFor(path); road.width = 3;
-      town.river.bridges.push({ id: `bridge${town.river.bridges.length}`, roadId: road.id, points: path.map(p => ({ x: p.x, y: p.y })), width: 3.5 });
+      const road = roadFor(path); road.width = Math.max(road.width, 3);
+      town.river.bridges.push({ id: `bridge${town.river.bridges.length}`, roadId: road.id, points: path.map(p => ({ x: p.x, y: p.y })), width: road.width + 0.5 });
     }
   }
   if (plan.coast && request.harbor !== false) {

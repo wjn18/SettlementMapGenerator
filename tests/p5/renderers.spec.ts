@@ -13,7 +13,16 @@ test('Canvas is the default; PNG and SVG exports preserve the active preview, th
   for(const kind of ['canvas','svg','openfl']){
     await page.locator('#renderer').selectOption(kind);await expect(page).toHaveURL(new RegExp(`renderer=${kind}`));
     expect(await page.evaluate(()=>({json:JSON.stringify(window.__playground.town),count:window.__playground.generationCount,view:window.__playground.viewport}))).toEqual(before);
-    const hit=await page.evaluate(()=>{const a=window.__playground,p=a.scene.hitRegions[0].points[0],v=a.viewport,host=document.querySelector('#map')!.getBoundingClientRect();return a.pick(host.width/2+(p.x-v.centerX)*v.zoom,host.height/2+(p.y-v.centerY)*v.zoom);});expect(hit).not.toBeNull();
+    const hit=await page.evaluate(()=>{
+      const a=window.__playground,v=a.viewport,host=document.querySelector('#map')!.getBoundingClientRect();
+      const city=new Set(a.town.districts.filter((d:any)=>d.withinCity).map((d:any)=>d.id));
+      for(const region of a.scene.hitRegions.filter((r:any)=>city.has(r.entityId))){
+        const p=region.points.reduce((sum:any,p:any)=>({x:sum.x+p.x/region.points.length,y:sum.y+p.y/region.points.length}),{x:0,y:0});
+        const x=host.width/2+(p.x-v.centerX)*v.zoom,y=host.height/2+(p.y-v.centerY)*v.zoom;
+        if(x>0&&x<host.width&&y>0&&y<host.height){const found=a.pick(x,y);if(found)return found;}
+      }
+      return null;
+    });expect(hit).not.toBeNull();
     for(const format of ['png','svg']){
       const pending=page.waitForEvent('download');await page.locator(format==='svg'?'#export-svg':'#export-image').click();const download=await pending,bytes=readFileSync((await download.path())!);
       expect(download.suggestedFilename()).toBe(`settlement-42.${format}`);

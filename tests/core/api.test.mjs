@@ -4,7 +4,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { spawnSync } from 'node:child_process';
 import { generateTown, generateTownSteps, serializeTown, deserializeTown, validateTown, TownDataError, createVertexIndex, containsPoint, hasVertexId } from '../../packages/core/dist/index.js';
-import { GenerationContext, Random, ResourceLimitError } from '../../packages/core/dist/context.js';
+import { GenerationContext, Random, ResourceLimitError, RetryableError } from '../../packages/core/dist/context.js';
+import { SkeletonModel } from '../../packages/core/dist/skeleton.js';
 import { Model } from '../../packages/core/dist/model.js';
 import { Polygon, Point } from '../../packages/core/dist/geometry.js';
 import { createAlleys } from '../../packages/core/dist/wards.js';
@@ -90,9 +91,13 @@ test('invalid inputs return typed errors and bounded retry exhaustion reports th
   for (const options of [null, [], {}, { seed: 0, size: 6 }, { seed: 2147483647, size: 6 }, { seed: NaN, size: 6 }, { seed: 1.1, size: 6 }, { seed: 1, size: 5 }, { seed: 1, size: 101 }, { seed: 1, size: 100.5 }, { seed: 1, size: Infinity }, { seed: 1, size: 6, walls: 'yes' }, { seed: 1, size: 6, castle: null }, { seed: 1, size: 6, maxAttempts: 0 }, { seed: 1, size: 6, maxAttempts: 101 }, { seed: 1, size: 6, typo: 1 }]) {
     const result = generateTown(options); assert.equal(result.ok, false); assert.equal(result.error.code, 'INVALID_OPTIONS'); assert.equal(result.error.attempts, 0);
   }
-  const failure = generateTown({ seed: 1, size: 15, maxAttempts: 1 });
-  assert.equal(failure.ok, false); assert.equal(failure.error.code, 'GENERATION_FAILED');
-  assert.equal(failure.error.attempts, 1); assert.equal(failure.error.stage, 'buildWalls');
+  const original = SkeletonModel.prototype.buildPatches;
+  try {
+    SkeletonModel.prototype.buildPatches = () => { throw new RetryableError('Rejected road plan'); };
+    const failure = generateTown({ seed: 1, size: 15, maxAttempts: 1 });
+    assert.equal(failure.ok, false); assert.equal(failure.error.code, 'GENERATION_FAILED');
+    assert.equal(failure.error.attempts, 1); assert.equal(failure.error.stage, 'buildPatches');
+  } finally { SkeletonModel.prototype.buildPatches = original; }
 });
 
 test('operation/depth budgets terminate and unexpected programming errors propagate', () => {
