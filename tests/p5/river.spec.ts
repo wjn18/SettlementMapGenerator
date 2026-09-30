@@ -18,7 +18,7 @@ test('river controls, bridges, three renderers and lossless exports', async ({ p
   for (const format of ['svg', 'png']) {
     const pending = page.waitForEvent('download'); await page.locator(format === 'svg' ? '#export-svg' : '#export-image').click();
     const download = await pending, data = readFileSync((await download.path())!);
-    if (format === 'svg') { expect(data.toString()).toContain('#adc6cb'); expect(data.toString()).toContain(`stroke-width="${river.width}"`); }
+    if (format === 'svg') { expect(data.toString()).toContain('fill="#adc6cb"'); expect(data.toString()).toContain(`L ${river.surface[0].x} ${river.surface[0].y}`); }
     else { const png = PNG.sync.read(data); expect(png.width).toBeGreaterThan(500); expect(data.length).toBeGreaterThan(10000); }
   }
   const pending = page.waitForEvent('download'); await page.locator('#export').click();

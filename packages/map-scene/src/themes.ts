@@ -91,6 +91,7 @@ export function mixColor(a: string, b: string, amount: number): string {
 }
 /** Semantic colors: the same use always belongs to the same color family. */
 export const DISTRICT_STYLES = Object.freeze({
+  Harbor: { label: '港口仓储区', color: '#b99153' },
   CraftsmenWard: { label: '工匠街区', color: '#c47b4f' },
   Slum: { label: '平民街区', color: '#aaa78a' },
   Castle: { label: '城堡', color: '#8053a2' },

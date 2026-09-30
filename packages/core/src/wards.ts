@@ -11,7 +11,7 @@ interface WardStrategy {
   rate?: (model: Model, patch: Patch) => number;
   geometry?: (ward: Ward) => Polygon[];
 }
-export type WardType = 'Ward' | 'CraftsmenWard' | 'GateWard' | 'MerchantWard' | 'AdministrationWard' | 'PatriciateWard' | 'Slum' | 'MilitaryWard' | 'Cathedral' | 'Castle' | 'Market' | 'Park' | 'Farm';
+export type WardType = 'Ward' | 'CraftsmenWard' | 'GateWard' | 'MerchantWard' | 'AdministrationWard' | 'PatriciateWard' | 'Slum' | 'MilitaryWard' | 'Cathedral' | 'Castle' | 'Market' | 'Park' | 'Farm' | 'Harbor';
 const centerDistance = (m: Model, p: Patch): number => p.shape.distance(m.plaza ? m.plaza.shape.center : m.center);
 const longest = (p: Polygon): Point => minimum(p, v => -p.vector(v).length);
 
@@ -97,6 +97,7 @@ export function createWard(type: WardType, model: Model, patch: Patch): Ward { r
 /** Explicit strategies avoid Haxe reflection and inherited static scoring differences. */
 export const wardRegistry: Readonly<Record<WardType, WardStrategy>> = Object.freeze({
   Ward: {},
+  Harbor: { parameters: () => [28, 0.12, 0.35, 0.06] },
   CraftsmenWard: { parameters: c => { const r = c.random; return [10 + 80 * r.float() * r.float(), 0.5 + r.float() * 0.2, 0.6, 0.04]; } },
   GateWard: { parameters: c => { const r = c.random; return [10 + 50 * r.float() * r.float(), 0.5 + r.float() * 0.3, 0.7, 0.04]; } },
   MerchantWard: { parameters: c => { const r = c.random; return [50 + 60 * r.float() * r.float(), 0.5 + r.float() * 0.3, 0.7, 0.15]; }, rate: centerDistance },

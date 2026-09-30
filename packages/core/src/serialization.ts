@@ -1,5 +1,6 @@
 import { normalizeOptions, OptionsError } from './options.js';
 import { wardRegistry } from './wards.js';
+import { normalizeMapName } from './names.js';
 import type { TownData, Point2, Vertex, Id } from './types.js';
 
 export class TownDataError extends Error {
@@ -34,10 +35,10 @@ function choice(value: unknown, choices: readonly string[], label: string): stri
 /** Validates structure, bounds, positive rings and every cross-entity reference. */
 export function validateTown(value: unknown): asserts value is TownData {
   const has = (value: unknown, key: string) => value !== null && typeof value === 'object' && Object.hasOwn(value, key);
-  const town = object(value, 'town', ['schemaVersion', 'generatorVersion', 'request', 'resolved', 'vertices', 'districts', 'buildings', 'features', 'roads', 'walls', 'gates', 'entrances', 'center', 'bounds', ...(has(value, 'river') ? ['river'] : [])]);
+  const town = object(value, 'town', ['schemaVersion', 'generatorVersion', 'request', 'resolved', 'vertices', 'districts', 'buildings', 'features', 'roads', 'walls', 'gates', 'entrances', 'center', 'bounds', ...['river', 'terrain', 'atlas'].filter(k => has(value, k))]);
   if (town.schemaVersion !== '1') fail('Unsupported schemaVersion');
   string(town.generatorVersion, 'generatorVersion');
-  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', ...(has(town.request, 'river') ? ['river'] : [])]);
+  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', ...['river', 'coast', 'harbor'].filter(k => has(town.request, k))]);
   let request: ReturnType<typeof normalizeOptions>;
   try { request = normalizeOptions(rawRequest as unknown as TownData['request']); }
   catch (e) { if (e instanceof OptionsError) fail(e.message); throw e; }
@@ -73,14 +74,28 @@ export function validateTown(value: unknown): asserts value is TownData {
     if (!Number.isFinite(area) || area <= 0) fail('Ring must have positive finite signed area');
     return ids;
   }
-  const districts = new Set<string>();
+  const districts = new Set<string>(), cityDistricts = new Set<string>();
   for (const value of array(town.districts, 'districts', 4096)) {
     const d = object(value, 'district', ['id', 'boundary', 'wardType', 'withinCity', 'withinWalls']); districts.add(id(d.id)); ring(d.boundary);
     const type = string(d.wardType, 'wardType'); if (!Object.hasOwn(wardRegistry, type)) fail('Unknown ward type');
     boolean(d.withinCity, 'withinCity'); boolean(d.withinWalls, 'withinWalls');
+    if (d.withinCity) cityDistricts.add(d.id as string);
     if (d.withinWalls && (!d.withinCity || !resolved.walls)) fail('Invalid district wall membership');
   }
   if (!districts.size) fail('Empty districts');
+  if (has(town, 'atlas')) {
+    const atlas = object(town.atlas, 'atlas', ['version', 'cityName', 'regions']);
+    if (atlas.version !== '1') fail('Unsupported atlas version');
+    const name = (value: unknown) => { const text = string(value, 'map name'); try { if (normalizeMapName(text) !== text) fail('Map name must be normalized'); } catch { fail('Invalid map name'); } };
+    name(atlas.cityName); const assigned = new Set<string>();
+    for (const entry of array(atlas.regions, 'named regions', 4096)) {
+      const region = object(entry, 'named region', ['id', 'name', 'kind', 'districtIds']); id(region.id); name(region.name);
+      choice(region.kind, ['quarter', 'harbor', 'citadel'], 'region kind');
+      const members = array(region.districtIds, 'region members', 4096); if (!members.length) fail('Empty named region');
+      for (const member of members) { const key = string(member, 'region district'); if (!cityDistricts.has(key) || assigned.has(key)) fail('Invalid or repeated region district'); assigned.add(key); }
+    }
+    if (assigned.size !== cityDistricts.size) fail('Named regions must cover every city district');
+  }
   for (const kind of ['buildings', 'features'] as const) for (const value of array(town[kind], kind)) {
     const b = object(value, kind, kind === 'features' ? ['id', 'districtId', 'boundary', 'kind'] : ['id', 'districtId', 'boundary']);
     id(b.id); if (!districts.has(string(b.districtId, 'districtId'))) fail('Missing district reference'); ring(b.boundary);
@@ -117,26 +132,52 @@ export function validateTown(value: unknown): asserts value is TownData {
   const bounds = object(town.bounds, 'bounds', ['minX', 'minY', 'maxX', 'maxY']);
   if (bounds.minX !== minX || bounds.minY !== minY || bounds.maxX !== maxX || bounds.maxY !== maxY) fail('Bounds disagree with vertices');
   if ((request.river === true) !== has(town, 'river')) fail('River geometry disagrees with request');
+  const positive = (value: unknown, label: string) => { const n = number(value, label); if (n <= 0 || n > 1000) fail(`Invalid ${label}`); return n; };
+  const path = (value: unknown, label: string, closed = false) => {
+    const points = array(value, label, 512); if (points.length < (closed ? 3 : 2)) fail(`${label}: too few points`);
+    let previous: Point2 | undefined; const parsed: Point2[] = [];
+    for (const entry of points) {
+      const p = object(entry, label, ['x', 'y']), x = number(p.x, 'x'), y = number(p.y, 'y');
+      if (x < minX - 1e-6 || x > maxX + 1e-6 || y < minY - 1e-6 || y > maxY + 1e-6) fail(`${label}: outside bounds`);
+      if (previous && previous.x === x && previous.y === y) fail(`${label}: repeated adjacent point`);
+      parsed.push(previous = { x, y });
+    }
+    if (closed && parsed.reduce((area, a, i) => { const b = parsed[(i + 1) % parsed.length]; return area + a.x * b.y - b.x * a.y; }, 0) <= 0) fail(`${label}: invalid surface area`);
+  };
   if (has(town, 'river')) {
-    const river = object(town.river, 'river', ['centerline', 'width', 'bankWidth', 'bridges']);
-    const positive = (value: unknown, label: string) => { const n = number(value, label); if (n <= 0 || n > 1000) fail(`Invalid ${label}`); return n; };
-    const path = (value: unknown, label: string) => {
-      const points = array(value, label, 512); if (points.length < 2) fail(`${label}: too few points`);
-      let previous: Point2 | undefined;
-      for (const entry of points) {
-        const p = object(entry, label, ['x', 'y']), x = number(p.x, 'x'), y = number(p.y, 'y');
-        if (x < minX - 1e-6 || x > maxX + 1e-6 || y < minY - 1e-6 || y > maxY + 1e-6) fail(`${label}: outside bounds`);
-        if (previous && previous.x === x && previous.y === y) fail(`${label}: repeated adjacent point`);
-        previous = { x, y };
-      }
-    };
+    const river = object(town.river, 'river', ['centerline', 'width', 'bankWidth', 'bridges', ...(has(town.river, 'surface') ? ['surface'] : [])]);
     path(river.centerline, 'river centerline'); positive(river.width, 'river width'); positive(river.bankWidth, 'bank width');
+    if (has(river, 'surface')) path(river.surface, 'river surface', true);
     for (const value of array(river.bridges, 'bridges', 512)) {
       const bridge = object(value, 'bridge', ['id', 'roadId', 'points', 'width']); id(bridge.id);
       if (!roadIds.has(string(bridge.roadId, 'bridge road'))) fail('Missing bridge road');
       path(bridge.points, 'bridge path'); positive(bridge.width, 'bridge width');
     }
   }
+  if (has(town, 'terrain')) {
+    const terrain = object(town.terrain, 'terrain', ['waterfronts', 'docks', ...(has(town.terrain, 'coast') ? ['coast'] : [])]);
+    if (!!request.coast !== has(terrain, 'coast')) fail('Coast geometry disagrees with request');
+    if (has(terrain, 'coast')) {
+      const coast = object(terrain.coast, 'coast', ['side', 'shoreline', 'water']);
+      choice(coast.side, ['east', 'south', 'west', 'north'], 'coast side');
+      if (request.coast !== 'auto' && request.coast !== coast.side) fail('Coast side disagrees with request');
+      path(coast.shoreline, 'shoreline'); path(coast.water, 'sea surface', true);
+    }
+    const waterfronts = new Set<string>();
+    for (const entry of array(terrain.waterfronts, 'waterfronts', 4096)) {
+      const front = object(entry, 'waterfront', ['roadId', 'kind']), road = string(front.roadId, 'waterfront road');
+      if (!roadIds.has(road) || waterfronts.has(road)) fail('Invalid waterfront road'); waterfronts.add(road);
+      choice(front.kind, ['coast', 'river'], 'waterfront kind');
+      if (front.kind === 'coast' ? !has(terrain, 'coast') : !has(town, 'river')) fail('Missing waterfront waterbody');
+    }
+    const docks = array(terrain.docks, 'docks', 512);
+    if (docks.length && (!has(terrain, 'coast') || request.harbor === false)) fail('Docks disagree with harbor option');
+    for (const entry of docks) {
+      const dock = object(entry, 'dock', ['id', 'districtId', 'roadId', 'points', 'width']); id(dock.id);
+      if (!districts.has(string(dock.districtId, 'dock district')) || !waterfronts.has(string(dock.roadId, 'dock road'))) fail('Invalid dock connection');
+      path(dock.points, 'dock path'); positive(dock.width, 'dock width');
+    }
+  } else if (request.coast) fail('Missing coast terrain');
 }
 
 // Fixed lexical key order makes serialized snapshots independent of object property order.

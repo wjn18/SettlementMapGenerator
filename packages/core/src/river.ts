@@ -1,5 +1,6 @@
 import { Random } from './context.js';
 import type { TownData, River, Point2 } from './types.js';
+import { inRing } from './terrain-geometry.js';
 
 const lerp = (a: Point2, b: Point2, t: number): Point2 => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 function segmentDistance(p: Point2, a: Point2, b: Point2): number {
@@ -27,7 +28,14 @@ function contains(ring: readonly Point2[], p: Point2): boolean {
   }
   return inside;
 }
-export function polygonTouchesRiver(ring: readonly Point2[], river: Pick<River, 'centerline' | 'width' | 'bankWidth'>, clearance = 0): boolean {
+export function polygonTouchesRiver(ring: readonly Point2[], river: Pick<River, 'centerline' | 'width' | 'bankWidth' | 'surface'>, clearance = 0): boolean {
+  if (river.surface) {
+    if (ring.some(p => inRing(river.surface!, p)) || river.surface.some(p => inRing(ring, p))) return true;
+    for (let i = 0; i < ring.length; i++) for (let j = 0; j < river.surface.length; j++) {
+      if (segmentsDistance(ring[i], ring[(i + 1) % ring.length], river.surface[j], river.surface[(j + 1) % river.surface.length]) <= clearance) return true;
+    }
+    return false;
+  }
   const radius = river.width / 2 + river.bankWidth + clearance;
   for (let i = 1; i < river.centerline.length; i++) {
     const a = river.centerline[i - 1], b = river.centerline[i];

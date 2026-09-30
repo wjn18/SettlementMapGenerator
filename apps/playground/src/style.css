@@ -5,3 +5,4 @@ body[data-capture="true"]{display:block}body[data-capture="true"] .sidebar,body[
 body[data-capture="true"] #tooltip{display:none!important}
 
 .theme-label select{width:190px;max-width:42vw}
+.terrain-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}.terrain-options select{margin-top:7px;padding:8px 5px;font-size:12px}.terrain-note{font-size:10px;line-height:1.6;color:#738474;margin:0 0 14px}

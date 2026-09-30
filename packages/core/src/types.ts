@@ -1,11 +1,14 @@
 export type FeatureChoice = boolean | 'auto';
+export type CoastSide = 'east' | 'south' | 'west' | 'north';
 export interface GenerateOptions {
   seed: number; size: number;
   walls?: FeatureChoice; castle?: FeatureChoice; plaza?: FeatureChoice;
   maxAttempts?: number;
   river?: boolean;
+  coast?: CoastSide | 'auto' | false;
+  harbor?: boolean;
 }
-export type NormalizedOptions = Required<Omit<GenerateOptions, 'river'>> & Pick<GenerateOptions, 'river'>;
+export type NormalizedOptions = Required<Omit<GenerateOptions, 'river' | 'coast' | 'harbor'>> & Pick<GenerateOptions, 'river' | 'coast' | 'harbor'>;
 export interface GenerationError {
   code: 'INVALID_OPTIONS' | 'GENERATION_FAILED' | 'RESOURCE_LIMIT';
   stage: string; message: string; attempts: number;
@@ -24,7 +27,12 @@ export interface Road { id: Id; kind: 'street' | 'external'; vertexIds: Id[]; wi
 export interface Wall { id: Id; kind: 'city' | 'castle'; boundary: PolygonRing; activeSegments: boolean[]; gateIds: Id[]; towerVertexIds: Id[] }
 export interface Gate { id: Id; wallId: Id; vertexId: Id }
 export interface Bridge { id: Id; roadId: Id; points: Point2[]; width: number }
-export interface River { centerline: Point2[]; width: number; bankWidth: number; bridges: Bridge[] }
+export interface River { centerline: Point2[]; width: number; bankWidth: number; bridges: Bridge[]; surface?: Point2[] }
+export interface Coast { side: CoastSide; shoreline: Point2[]; water: Point2[] }
+export interface Dock { id: Id; districtId: Id; roadId: Id; points: Point2[]; width: number }
+export interface Terrain { coast?: Coast; waterfronts: { roadId: Id; kind: 'coast' | 'river' }[]; docks: Dock[] }
+export interface NamedRegion { id: Id; name: string; kind: 'quarter' | 'harbor' | 'citadel'; districtIds: Id[] }
+export interface TownAtlas { version: '1'; cityName: string; regions: NamedRegion[] }
 export interface TownData {
   schemaVersion: '1'; generatorVersion: string; request: NormalizedOptions;
   resolved: { seed: number; size: number; walls: boolean; castle: boolean; plaza: boolean; attempts: number };
@@ -32,4 +40,6 @@ export interface TownData {
   roads: Road[]; walls: Wall[]; gates: Gate[]; entrances: Id[];
   center: Point2; bounds: Bounds;
   river?: River;
+  terrain?: Terrain;
+  atlas?: TownAtlas;
 }

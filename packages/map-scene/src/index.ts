@@ -1,8 +1,12 @@
 // Drawing order and palettes ported from watabou/TownGeneratorOS mapping (GPL-3.0).
 import { validateTown, distanceToPath } from '@settlement/core';
-import type { TownData, Point2, Bounds, Id, River } from '@settlement/core';
+import type { TownData, Point2, Bounds, Id, River, Terrain } from '@settlement/core';
 import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoofColor } from './themes.js';
 import type { MapTheme } from './themes.js';
+import { buildMapLabels } from './labels.js';
+import type { MapLabel } from './labels.js';
+export { layoutMapLabels, labelFont, LABEL_FONT } from './labels.js';
+export type { MapLabel, PlacedLabel, LabelGlyph } from './labels.js';
 export { THEMES, THEME_LABELS, themeFromCityPalette, DISTRICT_STYLES, districtColor } from './themes.js';
 export type { MapTheme } from './themes.js';
 export interface Stroke { color: string; width: number; units: 'world' | 'screen'; cap: 'butt' | 'round' | 'square'; join: 'miter' | 'round' | 'bevel'; miterLimit: number }
@@ -10,7 +14,7 @@ export type DrawCommand =
   | { kind: 'polygon'; points: Point2[]; fill?: string; stroke?: Stroke }
   | { kind: 'polyline'; points: Point2[]; stroke: Stroke }
   | { kind: 'circle'; center: Point2; radius: number; fill?: string; stroke?: Stroke };
-export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[]; river?: River }
+export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[]; river?: River; terrain?: Terrain; labels?: MapLabel[] }
 export interface Viewport { centerX: number; centerY: number; zoom: number }
 /** CSS-pixel input and world-coordinate viewport; no rendering runtime types. */
 export interface MapRenderer {
@@ -23,11 +27,17 @@ export interface MapRenderer {
 export function pickScene(scene: MapScene | null, viewport: Viewport, width: number, height: number, x: number, y: number): string | null {
   if (!scene || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > width || y > height) return null;
   const p = { x: viewport.centerX + (x-width/2)/viewport.zoom, y: viewport.centerY + (y-height/2)/viewport.zoom };
-  if (scene.river && distanceToPath(p, scene.river.centerline) < scene.river.width / 2 && !scene.river.bridges.some(b => distanceToPath(p, b.points) <= b.width / 2)) return null;
+  for (const dock of scene.terrain?.docks ?? []) if (distanceToPath(p, dock.points) <= dock.width / 2) return dock.districtId;
+  for (const bridge of scene.river?.bridges ?? []) if (distanceToPath(p, bridge.points) <= bridge.width / 2) {
+    const ends = [bridge.points[0], bridge.points[bridge.points.length - 1]].sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
+    for (const end of ends) { const region = scene.hitRegions.find(r => pointInRing(r.points, end)); if (region) return region.entityId; }
+  }
+  if (scene.terrain?.coast && pointInRing(scene.terrain.coast.water, p)) return null;
+  if (scene.river && (scene.river.surface ? pointInRing(scene.river.surface, p) : distanceToPath(p, scene.river.centerline) < scene.river.width / 2) && !scene.river.bridges.some(b => distanceToPath(p, b.points) <= b.width / 2)) return null;
   for (let i=scene.hitRegions.length-1;i>=0;i--) if (pointInRing(scene.hitRegions[i].points,p)) return scene.hitRegions[i].entityId;
   return null;
 }
-export interface SceneOptions { districtColors?: boolean }
+export interface SceneOptions { districtColors?: boolean; labels?: boolean }
 export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchment, options: SceneOptions = {}): MapScene {
   validateTown(town);
   validateTheme(palette);
@@ -55,12 +65,20 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     commands.push({ kind: 'polyline', points: points(road.vertexIds), stroke: stroke(palette.paper, Math.max(0.01, road.width - palette.normalStroke)) });
   }
   const geometry = new Map<Id, { id: Id; boundary: Id[]; kind: 'building' | 'grove' | 'fountain' | 'statue' }[]>();
+  const water = palette.water ?? mixColor(palette.medium, '#83b8c6', 0.6);
+  if (town.terrain?.coast) {
+    commands.push({ kind: 'polygon', points: town.terrain.coast.water.map(p => ({ ...p })), fill: water });
+    commands.push({ kind: 'polyline', points: town.terrain.coast.shoreline.map(p => ({ ...p })), stroke: stroke(mixColor(palette.dark, water, 0.5), palette.normalStroke) });
+  }
   if (town.river) {
     const river = town.river, path = river.centerline.map(p => ({ ...p }));
     const water = palette.water ?? mixColor(palette.medium, '#83b8c6', 0.6);
-    commands.push({ kind: 'polyline', points: path, stroke: stroke(mixColor(palette.dark, palette.paper, 0.55), river.width + 2 * river.bankWidth + 0.35) });
-    commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.light, river.width + 2 * river.bankWidth) });
-    commands.push({ kind: 'polyline', points: path, stroke: stroke(water, river.width) });
+    if (river.surface) commands.push({ kind: 'polygon', points: river.surface.map(p => ({ ...p })), fill: water });
+    else {
+      commands.push({ kind: 'polyline', points: path, stroke: stroke(mixColor(palette.dark, palette.paper, 0.55), river.width + 2 * river.bankWidth + 0.35) });
+      commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.light, river.width + 2 * river.bankWidth) });
+      commands.push({ kind: 'polyline', points: path, stroke: stroke(water, river.width) });
+    }
   }
   for (const b of town.buildings) { if (!geometry.has(b.districtId)) geometry.set(b.districtId, []); geometry.get(b.districtId)!.push({ id: b.id, boundary: b.boundary, kind: 'building' }); }
   for (const f of town.features) { if (!geometry.has(f.districtId)) geometry.set(f.districtId, []); geometry.get(f.districtId)!.push({ id: f.id, boundary: f.boundary, kind: f.kind }); }
@@ -104,8 +122,14 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.dark, bridge.width + 0.5, 'butt') });
     commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.light, bridge.width, 'butt') });
   }
-  const river = town.river ? { ...town.river, centerline: town.river.centerline.map(p => ({ ...p })), bridges: town.river.bridges.map(b => ({ ...b, points: b.points.map(p => ({ ...p })) })) } : undefined;
-  return { bounds: { ...town.bounds }, background: palette.paper, commands, hitRegions: town.districts.map(d => ({ entityId: d.id, points: points(d.boundary) })), ...(river ? { river } : {}) };
+  for (const dock of town.terrain?.docks ?? []) {
+    const path = dock.points.map(p => ({ ...p }));
+    commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.dark, dock.width + 0.45, 'butt') });
+    commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.light, dock.width, 'butt') });
+  }
+  const river = town.river ? { ...town.river, ...(town.river.surface ? { surface: town.river.surface.map(p => ({ ...p })) } : {}), centerline: town.river.centerline.map(p => ({ ...p })), bridges: town.river.bridges.map(b => ({ ...b, points: b.points.map(p => ({ ...p })) })) } : undefined;
+  const terrain = town.terrain ? { ...town.terrain, ...(town.terrain.coast ? { coast: { ...town.terrain.coast, shoreline: town.terrain.coast.shoreline.map(p => ({ ...p })), water: town.terrain.coast.water.map(p => ({ ...p })) } } : {}), waterfronts: town.terrain.waterfronts.map(w => ({ ...w })), docks: town.terrain.docks.map(d => ({ ...d, points: d.points.map(p => ({ ...p })) })) } : undefined;
+  return { bounds: { ...town.bounds }, background: palette.paper, commands, hitRegions: town.districts.map(d => ({ entityId: d.id, points: points(d.boundary) })), ...(river ? { river } : {}), ...(terrain ? { terrain } : {}), ...(options.labels ? { labels: buildMapLabels(town, palette) } : {}) };
 }
 export function pointInRing(points: readonly Point2[], p: Point2): boolean {
   let inside = false;

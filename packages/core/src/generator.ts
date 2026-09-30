@@ -1,7 +1,8 @@
 import { GenerationContext, RetryableError, ResourceLimitError } from './context.js';
 import { Model } from './model.js';
 import { exportTown } from './export.js';
-import { addRiver } from './river.js';
+import { buildTerrainTown } from './terrain.js';
+import { createTownAtlas } from './names.js';
 import { normalizeOptions, OptionsError } from './options.js';
 import type { GenerateOptions, NormalizedOptions, GenerationResult, GenerationProgress } from './types.js';
 
@@ -26,10 +27,14 @@ export function generateTownSteps(options: GenerateOptions): Generator<Generatio
     let message = '', lastStage = '';
     for (let attempt = 1; attempt <= request.maxAttempts; attempt++) {
       try {
+        if (request.river || request.coast) {
+          const terrain = buildTerrainTown(new Model(context, request.size, model.features), request, attempt);
+          for (;;) { const next = terrain.next(); if (next.done) { next.value.atlas = createTownAtlas(next.value); return { ok: true, town: next.value }; } yield { attempt, stage: next.value }; }
+        }
         for (const stage of model.build()) yield { attempt, stage };
         context.stage = 'export';
         const town = exportTown(model, request, attempt);
-        if (request.river) { context.stage = 'river'; addRiver(town); yield { attempt, stage: 'river' }; }
+        town.atlas = createTownAtlas(town);
         return { ok: true, town };
       } catch (e) {
         if (e instanceof ResourceLimitError) return { ok: false, error: { code: 'RESOURCE_LIMIT', stage: context.stage, message: e.message, attempts: attempt } };

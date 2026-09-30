@@ -1,4 +1,4 @@
-import { pickScene } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface CanvasRenderer extends MapRenderer { exportPNG(): Promise<Blob> }
 export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
@@ -25,6 +25,17 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
       if('fill' in command&&command.fill){ctx.fillStyle=command.fill;ctx.fill();}
       const stroke=command.stroke;
       if(stroke){ctx.strokeStyle=stroke.color;ctx.lineWidth=stroke.width/(stroke.units==='screen'?viewport.zoom:1);ctx.lineCap=stroke.cap;ctx.lineJoin=stroke.join;ctx.miterLimit=stroke.miterLimit;ctx.stroke();}
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const labels = layoutMapLabels(scene, viewport, width, height, (text, size, kind) => { ctx.font = labelFont(size, kind); return ctx.measureText(text).width; });
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+    for (const label of labels) {
+      ctx.font = labelFont(label.fontSize, label.kind); ctx.fillStyle = label.fill; ctx.strokeStyle = label.halo; ctx.lineWidth = label.haloWidth * 2;
+      for (const outline of [true, false]) for (const glyph of label.glyphs) {
+        ctx.save(); ctx.translate(glyph.x, glyph.y); ctx.rotate(glyph.angle);
+        if (outline) ctx.strokeText(glyph.text, 0, 0); else ctx.fillText(glyph.text, 0, 0);
+        ctx.restore();
+      }
     }
   }
   function resize(w:number,h:number,ratio:number):void {

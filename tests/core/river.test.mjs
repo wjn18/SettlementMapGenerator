@@ -9,9 +9,9 @@ for (const seed of [352656828, 1, 42, 12345]) for (const size of [6, 15, 40]) te
   validateTown(wet);
   assert.deepEqual(deserializeTown(serializeTown(wet)), wet);
   assert.equal(serializeTown(wet), serializeTown(generate({ ...options, river: true })));
-  assert.deepEqual(wet.districts, dry.districts);
-  assert.deepEqual(wet.roads, dry.roads);
-  assert.ok(wet.buildings.length < dry.buildings.length);
+  assert.notDeepEqual(wet.districts, dry.districts, 'water shapes the land before subdivision');
+  assert.ok(wet.terrain.waterfronts.some(w => w.kind === 'river'));
+  assert.ok(wet.river.surface.length >= 3);
   const index = new Map(wet.vertices.map(v => [v.id, v]));
   for (const b of [...wet.buildings, ...wet.features]) assert.equal(polygonTouchesRiver(b.boundary.map(id => index.get(id)), wet.river), false);
   for (const wall of wet.walls) for (let i = 0; i < wall.boundary.length; i++) if (wall.activeSegments[i]) {
