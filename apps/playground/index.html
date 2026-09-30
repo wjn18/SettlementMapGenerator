@@ -8,6 +8,7 @@
       <label for="seed">地图种子</label><div class="seed-row"><input id="seed" name="seed" type="number" min="1" max="2147483646" step="1" required value="12345"><button type="button" id="random" class="icon-button" title="随机种子" aria-label="随机种子">↻</button></div>
       <label for="size">城镇规模</label><select id="size" name="size"><option value="6">小镇 · 6</option><option value="10">大镇 · 10</option><option value="15">小城 · 15</option><option value="24" selected>大城 · 24</option><option value="40">都会 · 40</option></select>
       <div class="features"><label>广场<select id="plaza"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label><label>城堡<select id="castle"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label><label>城墙<select id="walls"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label></div>
+      <label for="river">河流</label><select id="river"><option value="false">无河流</option><option value="true">穿城河流 · 自动建桥</option></select>
       <button id="generate" class="primary" type="submit">生成地图 <span>↗</span></button>
     </fieldset></form><button id="cancel" type="button" hidden>取消生成</button>
     <section><div class="section-title">02 / 地图档案</div><div class="file-actions"><button id="import" type="button">导入 JSON</button><button id="export" type="button" disabled>导出 JSON</button></div><input type="file" id="file" accept=".json,application/json" hidden><p class="note">保存地图，留待下一次探索。</p></section>
@@ -25,6 +26,7 @@
       <div class="zoom-tools"><button id="zoom-out" aria-label="缩小">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="放大">+</button><button id="fit" aria-label="适应城镇">⌖</button></div>
       <div id="error" role="alert" hidden></div>
     </div>
+    <section class="district-legend" aria-label="街区用途图例"><div class="district-legend-heading"><label class="district-toggle"><input id="district-colors" type="checkbox" checked>街区分色</label><span>同类街区同色 · 悬停查看用途</span></div><div id="district-keys" class="district-keys"></div></section>
     <div class="bottom-bar"><span id="hover-label">将指针移入地图，查看街区用途</span><span>WATABOUTOWN / SETTLEMENT</span></div>
   </main>
   <script type="module" src="/src/main.ts"></script>

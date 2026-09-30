@@ -3,6 +3,8 @@ import { buildMapScene, fitViewport, THEMES } from '@settlement/map-scene';
 import type { MapRenderer, Viewport, MapScene } from '@settlement/map-scene';
 import { rendererFactories, isRendererKind, exportImage, download } from './renderers';
 import type { RendererKind } from './renderers';
+import { populateThemes } from './theme-select';
+import { renderDistrictLegend } from './district-legend';
 import small from '../../../tests/fixtures/p5/town-1-6.json';
 import medium from '../../../tests/fixtures/p5/town-42-15.json';
 import large from '../../../tests/fixtures/p5/town-12345-40.json';
@@ -16,6 +18,14 @@ if(isRendererKind(bench))document.body.dataset.bench=bench;
 const kinds=(Object.keys(rendererFactories) as RendererKind[]).filter(kind=>!isRendererKind(bench)||kind===bench);
 for(const article of Array.from(document.querySelectorAll<HTMLElement>('article')))article.hidden=!kinds.includes(article.dataset.kind as RendererKind);
 const sample=document.querySelector<HTMLSelectElement>('#sample')!,theme=document.querySelector<HTMLSelectElement>('#theme')!,scale=document.querySelector<HTMLSelectElement>('#scale')!;
+populateThemes(theme);
+const districtColors=document.querySelector<HTMLInputElement>('#district-colors')!;
+districtColors.checked=query.get('districts')!=='false';
+function themedScene(value:TownData):MapScene {
+  const palette=THEMES[theme.value as keyof typeof THEMES];
+  renderDistrictLegend(document.querySelector<HTMLElement>('#district-keys')!,value,palette,districtColors.checked);
+  return buildMapScene(value,palette,{districtColors:districtColors.checked});
+}
 const renderers=new Map<RendererKind,MapRenderer>(),views=new Map<RendererKind,Viewport>();
 let town=samples.medium,scene:MapScene,offset={x:0,y:0},zoom=1;
 let differenceRevision=0;
@@ -31,7 +41,7 @@ function baseView(kind:RendererKind):Viewport{
 }
 function view():void {clearDifference();for(const [kind,renderer]of renderers){const base=baseView(kind),v={centerX:base.centerX+offset.x,centerY:base.centerY+offset.y,zoom:base.zoom*zoom};views.set(kind,v);renderer.setViewport(v);}}
 function mount():void {for(const kind of kinds){const renderer=rendererFactories[kind](host(kind));renderers.set(kind,renderer);renderer.resize(host(kind).clientWidth,host(kind).clientHeight,devicePixelRatio);renderer.render(scene);}view();}
-function load(name=sample.value):void {town=samples[name];scene=buildMapScene(town,THEMES[theme.value as keyof typeof THEMES]);offset={x:0,y:0};zoom=Number(scale.value);for(const renderer of renderers.values())renderer.render(scene);view();document.querySelector('#details')!.textContent=`种子 ${town.resolved.seed} · ${town.buildings.length} 栋建筑 · 共享 ${scene.commands.length} 条绘制指令`;}
+function load(name=sample.value):void {town=samples[name];scene=themedScene(town);offset={x:0,y:0};zoom=Number(scale.value);for(const renderer of renderers.values())renderer.render(scene);view();document.querySelector('#details')!.textContent=`种子 ${town.resolved.seed} · ${town.buildings.length} 栋建筑 · 共享 ${scene.commands.length} 条绘制指令`;}
 load();mount();if(detail.value!=='whole')focusDetail();
 function focusDetail():void {
   const vertices=new Map(town.vertices.map(v=>[v.id,v]));let p;
@@ -40,7 +50,12 @@ function focusDetail():void {
   if(detail.value==='buildings'||(!p&&detail.value!=='whole')){const b=town.buildings.find(b=>town.districts.some(d=>d.id===b.districtId&&d.withinCity));if(b)p=vertices.get(b.boundary[0]);}
   if(p){const base=baseView(kinds[0]);offset={x:p.x-base.centerX,y:p.y-base.centerY};zoom=8;scale.value='8';}else{offset={x:0,y:0};zoom=1;scale.value='1';}view();
 }
-sample.onchange=()=>{load();focusDetail();};theme.onchange=()=>{scene=buildMapScene(town,THEMES[theme.value as keyof typeof THEMES]);for(const renderer of renderers.values())renderer.render(scene);view();};detail.onchange=focusDetail;scale.onchange=()=>{zoom=Number(scale.value);view();};document.querySelector<HTMLButtonElement>('#reset')!.onclick=()=>{detail.value='whole';focusDetail();};
+function updateTheme():void {
+  scene=themedScene(town);for(const renderer of renderers.values())renderer.render(scene);view();
+  const url=new URL(location.href);url.searchParams.set('theme',theme.value);url.searchParams.set('districts',String(districtColors.checked));history.replaceState(null,'',url);
+  document.querySelector('#details')!.textContent=`种子 ${town.resolved.seed} · ${town.buildings.length} 栋建筑 · 共享 ${scene.commands.length} 条绘制指令`;
+}
+sample.onchange=()=>{load();focusDetail();};theme.onchange=updateTheme;districtColors.onchange=updateTheme;detail.onchange=focusDetail;scale.onchange=()=>{zoom=Number(scale.value);view();};document.querySelector<HTMLButtonElement>('#reset')!.onclick=()=>{detail.value='whole';focusDetail();};
 difference.onclick=async()=>{
   if(difference.getAttribute('aria-pressed')==='true'){clearDifference();return;}
   const revision=++differenceRevision;difference.disabled=true;

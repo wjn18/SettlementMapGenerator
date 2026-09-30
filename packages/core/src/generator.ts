@@ -1,6 +1,7 @@
 import { GenerationContext, RetryableError, ResourceLimitError } from './context.js';
 import { Model } from './model.js';
 import { exportTown } from './export.js';
+import { addRiver } from './river.js';
 import { normalizeOptions, OptionsError } from './options.js';
 import type { GenerateOptions, NormalizedOptions, GenerationResult, GenerationProgress } from './types.js';
 
@@ -27,7 +28,9 @@ export function generateTownSteps(options: GenerateOptions): Generator<Generatio
       try {
         for (const stage of model.build()) yield { attempt, stage };
         context.stage = 'export';
-        return { ok: true, town: exportTown(model, request, attempt) };
+        const town = exportTown(model, request, attempt);
+        if (request.river) { context.stage = 'river'; addRiver(town); yield { attempt, stage: 'river' }; }
+        return { ok: true, town };
       } catch (e) {
         if (e instanceof ResourceLimitError) return { ok: false, error: { code: 'RESOURCE_LIMIT', stage: context.stage, message: e.message, attempts: attempt } };
         if (!(e instanceof RetryableError)) throw e;

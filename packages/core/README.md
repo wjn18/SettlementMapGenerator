@@ -17,6 +17,10 @@ console.log(restored.districts.length, restored.buildings.length);
 
 `seed` 必填，整数 `1..2147483646`；`size` 必填，整数 `6..40`。`plaza`、`castle`、`walls` 为布尔值或默认的 `"auto"`。始终先按广场、城堡、城墙的顺序消耗三次随机数，再应用显式开关。`maxAttempts` 默认 20，允许整数 `1..100`。未知参数或范围外参数返回 `INVALID_OPTIONS`，不自动修正。
 
+可选 `river: true` 启用一条穿城河流；省略或 `false` 保留无河流生成。河流是独立、确定性的地形后处理阶段：评估 64 条弯曲河道，优先避开道路端点、城堡和中央广场，清除河道及岸边相交建筑/景物，按道路跨水段生成桥梁，并在河岸切开城墙。小镇若没有道路跨河，可以没有桥梁。此版沿用原街区边界和道路网络，不重新规划滨水街区，不包含支流、湖泊、码头或水文模拟。
+
+开启后 `TownData.river` 保存 `centerline`、`width`、`bankWidth` 和 `bridges`；桥梁保存 `roadId`、折线路径和宽度，使用世界坐标。数据格式 `1` 增加可选字段，旧地图仍可原样导入；旧版严格校验器不支持新增的河流地图。JSON 往返保存实际几何，无须再次生成。`generateTownSteps` 增加可选 `river` 阶段；关闭时原生成随机序列和几何保持不变。
+
 `generateTownSteps(options)` 返回生成器，每完成一个阶段产出 `{ attempt, stage }`，最终返回与 `generateTown` 相同的结果。使用 `.next()` 的 `done/value` 读取最终结果；`for...of` 只读取进度。可交错推进不同实例，调用 `.return()` 放弃生成。单个阶段仍同步执行，需避免长任务阻塞界面时由应用放入 Worker。
 
 ```ts

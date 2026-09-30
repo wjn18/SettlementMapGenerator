@@ -3,8 +3,9 @@ export interface GenerateOptions {
   seed: number; size: number;
   walls?: FeatureChoice; castle?: FeatureChoice; plaza?: FeatureChoice;
   maxAttempts?: number;
+  river?: boolean;
 }
-export type NormalizedOptions = Required<GenerateOptions>;
+export type NormalizedOptions = Required<Omit<GenerateOptions, 'river'>> & Pick<GenerateOptions, 'river'>;
 export interface GenerationError {
   code: 'INVALID_OPTIONS' | 'GENERATION_FAILED' | 'RESOURCE_LIMIT';
   stage: string; message: string; attempts: number;
@@ -22,10 +23,13 @@ export interface Feature extends Building { kind: 'grove' | 'statue' | 'fountain
 export interface Road { id: Id; kind: 'street' | 'external'; vertexIds: Id[]; width: number }
 export interface Wall { id: Id; kind: 'city' | 'castle'; boundary: PolygonRing; activeSegments: boolean[]; gateIds: Id[]; towerVertexIds: Id[] }
 export interface Gate { id: Id; wallId: Id; vertexId: Id }
+export interface Bridge { id: Id; roadId: Id; points: Point2[]; width: number }
+export interface River { centerline: Point2[]; width: number; bankWidth: number; bridges: Bridge[] }
 export interface TownData {
   schemaVersion: '1'; generatorVersion: string; request: NormalizedOptions;
   resolved: { seed: number; size: number; walls: boolean; castle: boolean; plaza: boolean; attempts: number };
   vertices: Vertex[]; districts: District[]; buildings: Building[]; features: Feature[];
   roads: Road[]; walls: Wall[]; gates: Gate[]; entrances: Id[];
   center: Point2; bounds: Bounds;
+  river?: River;
 }

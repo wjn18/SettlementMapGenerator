@@ -44,7 +44,7 @@ test('generation controls, URL, hover, viewport, theme and JSON round trip', asy
 
 test('fixed P1 data render consistently across dev/production and JSON reload', async ({ page }, info) => {
   // These historical baselines belong to the OpenFL migration renderer.
-  await page.setViewportSize({ width: 800, height: 800 }); await page.goto('/?test=1&capture=1&renderer=openfl'); await ready(page);
+  await page.setViewportSize({ width: 800, height: 800 }); await page.goto('/?test=1&capture=1&renderer=openfl&districts=false'); await ready(page);
   for (const [seed, size] of [[42, 15], [1, 6], [12345, 24]]) {
     const fixed = legacyTown(seed, size);
     await page.evaluate(({ town, radius }) => { window.__playground.load(JSON.stringify(town)); window.__playground.setViewport({ centerX: 0, centerY: 0, zoom: 400 / radius }); }, fixed);

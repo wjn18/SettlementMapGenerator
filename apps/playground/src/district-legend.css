@@ -1,0 +1,11 @@
+.district-legend{flex:none;padding:12px 0 2px;font:11px "Segoe UI","Microsoft YaHei",sans-serif;color:#52665a}
+.district-legend-heading{display:flex;align-items:center;gap:14px;margin-bottom:9px}
+.district-legend-heading>span{font-size:10px;color:#7d8b7d}
+.district-toggle{display:flex;align-items:center;gap:7px;margin:0;font-size:11px;color:inherit;cursor:pointer}
+.district-toggle input{width:14px;height:14px;margin:0;accent-color:#527c69}
+.district-keys{display:flex;flex-wrap:wrap;gap:8px 17px;min-height:14px}
+.district-keys.inactive{visibility:hidden}
+.district-key{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.district-key i{width:11px;height:11px;border:1px solid #0002;border-radius:2px;flex:none}
+body[data-capture="true"] .district-legend{display:none}
+@media(max-width:580px){.district-keys{gap:7px 12px;font-size:10px}.district-legend-heading>span{font-size:9px}}

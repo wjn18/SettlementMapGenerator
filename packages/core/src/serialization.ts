@@ -33,10 +33,11 @@ function choice(value: unknown, choices: readonly string[], label: string): stri
 
 /** Validates structure, bounds, positive rings and every cross-entity reference. */
 export function validateTown(value: unknown): asserts value is TownData {
-  const town = object(value, 'town', ['schemaVersion', 'generatorVersion', 'request', 'resolved', 'vertices', 'districts', 'buildings', 'features', 'roads', 'walls', 'gates', 'entrances', 'center', 'bounds']);
+  const has = (value: unknown, key: string) => value !== null && typeof value === 'object' && Object.hasOwn(value, key);
+  const town = object(value, 'town', ['schemaVersion', 'generatorVersion', 'request', 'resolved', 'vertices', 'districts', 'buildings', 'features', 'roads', 'walls', 'gates', 'entrances', 'center', 'bounds', ...(has(value, 'river') ? ['river'] : [])]);
   if (town.schemaVersion !== '1') fail('Unsupported schemaVersion');
   string(town.generatorVersion, 'generatorVersion');
-  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts']);
+  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', ...(has(town.request, 'river') ? ['river'] : [])]);
   let request: ReturnType<typeof normalizeOptions>;
   try { request = normalizeOptions(rawRequest as unknown as TownData['request']); }
   catch (e) { if (e instanceof OptionsError) fail(e.message); throw e; }
@@ -85,8 +86,9 @@ export function validateTown(value: unknown): asserts value is TownData {
     id(b.id); if (!districts.has(string(b.districtId, 'districtId'))) fail('Missing district reference'); ring(b.boundary);
     if (kind === 'features') choice(b.kind, ['grove', 'statue', 'fountain'], 'feature kind');
   }
+  const roadIds = new Set<string>();
   for (const value of array(town.roads, 'roads', 4096)) {
-    const r = object(value, 'road', ['id', 'kind', 'vertexIds', 'width']); id(r.id); choice(r.kind, ['street', 'external'], 'road kind');
+    const r = object(value, 'road', ['id', 'kind', 'vertexIds', 'width']); roadIds.add(id(r.id)); choice(r.kind, ['street', 'external'], 'road kind');
     refs(r.vertexIds, 2, 'road vertices'); if (number(r.width, 'road width') <= 0) fail('Nonpositive road width');
   }
   const walls = new Map<string, { boundary: Set<string>; gateIds: string[] }>(), kinds = new Set<string>();
@@ -114,6 +116,27 @@ export function validateTown(value: unknown): asserts value is TownData {
   const center = object(town.center, 'center', ['x', 'y']); number(center.x, 'center.x'); number(center.y, 'center.y');
   const bounds = object(town.bounds, 'bounds', ['minX', 'minY', 'maxX', 'maxY']);
   if (bounds.minX !== minX || bounds.minY !== minY || bounds.maxX !== maxX || bounds.maxY !== maxY) fail('Bounds disagree with vertices');
+  if ((request.river === true) !== has(town, 'river')) fail('River geometry disagrees with request');
+  if (has(town, 'river')) {
+    const river = object(town.river, 'river', ['centerline', 'width', 'bankWidth', 'bridges']);
+    const positive = (value: unknown, label: string) => { const n = number(value, label); if (n <= 0 || n > 1000) fail(`Invalid ${label}`); return n; };
+    const path = (value: unknown, label: string) => {
+      const points = array(value, label, 512); if (points.length < 2) fail(`${label}: too few points`);
+      let previous: Point2 | undefined;
+      for (const entry of points) {
+        const p = object(entry, label, ['x', 'y']), x = number(p.x, 'x'), y = number(p.y, 'y');
+        if (x < minX - 1e-6 || x > maxX + 1e-6 || y < minY - 1e-6 || y > maxY + 1e-6) fail(`${label}: outside bounds`);
+        if (previous && previous.x === x && previous.y === y) fail(`${label}: repeated adjacent point`);
+        previous = { x, y };
+      }
+    };
+    path(river.centerline, 'river centerline'); positive(river.width, 'river width'); positive(river.bankWidth, 'bank width');
+    for (const value of array(river.bridges, 'bridges', 512)) {
+      const bridge = object(value, 'bridge', ['id', 'roadId', 'points', 'width']); id(bridge.id);
+      if (!roadIds.has(string(bridge.roadId, 'bridge road'))) fail('Missing bridge road');
+      path(bridge.points, 'bridge path'); positive(bridge.width, 'bridge width');
+    }
+  }
 }
 
 // Fixed lexical key order makes serialized snapshots independent of object property order.
