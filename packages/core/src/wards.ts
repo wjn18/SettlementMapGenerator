@@ -84,12 +84,22 @@ export class Ward {
       else { const n = m.getNeighbour(p, a); if (n?.withinCity) addEdge(a, b, m.isEnclosed(n) ? 1 : 0.4); }
     });
     const density = p.shape.map(v => m.gates.includes(v) ? 1 : m.patchByVertex(v).every(n => n.withinCity) ? 2 * m.context.random.float() : 0);
+    // Waterfront topology puts a street on every block edge. Such blocks are
+    // fully developed even when they border countryside and isEnclosed is false.
+    const surroundedByStreets = p.shape.every((a, i) => {
+      const b = p.shape[(i + 1) % p.shape.length];
+      return m.arteries.some(street => street.some((v, j) => j > 0 &&
+        ((street[j - 1] === a && v === b) || (street[j - 1] === b && v === a))));
+    });
     this.geometry = this.geometry.filter(building => {
       let minDist = 1;
       for (const e of edges) for (const v of building) { const d = distanceToLine(e.x, e.y, e.dx, e.dy, v.x, v.y) / e.d; if (d < minDist) minDist = d; }
       const weights = p.shape.interpolate(building.center); let population = 0;
       for (let j = 0; j < weights.length; j++) population += density[j] * weights[j];
-      minDist /= population; return m.context.random.fuzzy(1) > minDist;
+      // Still consume the original draws so later wards and retries keep their seed layout.
+      minDist /= population;
+      const occupied = m.context.random.fuzzy(1) > minDist;
+      return surroundedByStreets || occupied;
     });
   }
 }
