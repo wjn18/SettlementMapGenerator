@@ -87,7 +87,7 @@ test('all explicit feature combinations, boundary sizes and stable feature draws
 });
 
 test('invalid inputs return typed errors and bounded retry exhaustion reports the failed stage', () => {
-  for (const options of [null, [], {}, { seed: 0, size: 6 }, { seed: 2147483647, size: 6 }, { seed: NaN, size: 6 }, { seed: 1.1, size: 6 }, { seed: 1, size: 5 }, { seed: 1, size: 41 }, { seed: 1, size: Infinity }, { seed: 1, size: 6, walls: 'yes' }, { seed: 1, size: 6, castle: null }, { seed: 1, size: 6, maxAttempts: 0 }, { seed: 1, size: 6, maxAttempts: 101 }, { seed: 1, size: 6, typo: 1 }]) {
+  for (const options of [null, [], {}, { seed: 0, size: 6 }, { seed: 2147483647, size: 6 }, { seed: NaN, size: 6 }, { seed: 1.1, size: 6 }, { seed: 1, size: 5 }, { seed: 1, size: 101 }, { seed: 1, size: 100.5 }, { seed: 1, size: Infinity }, { seed: 1, size: 6, walls: 'yes' }, { seed: 1, size: 6, castle: null }, { seed: 1, size: 6, maxAttempts: 0 }, { seed: 1, size: 6, maxAttempts: 101 }, { seed: 1, size: 6, typo: 1 }]) {
     const result = generateTown(options); assert.equal(result.ok, false); assert.equal(result.error.code, 'INVALID_OPTIONS'); assert.equal(result.error.attempts, 0);
   }
   const failure = generateTown({ seed: 1, size: 15, maxAttempts: 1 });

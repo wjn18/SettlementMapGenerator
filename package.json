@@ -19,6 +19,7 @@
     "build:core": "npm run build --workspace @settlement/core",
     "generate": "node scripts/generate-town.mjs",
     "test:terrain:batch": "npm run build:core && node scripts/check-terrain-batch.mjs",
+    "test:sizes:batch": "npm run build:core && node scripts/check-city-sizes.mjs",
     "test:p2": "npm run build:core && node --test tests/core/*.test.mjs",
     "test:p2:browser": "npm run build:core && node --test tests/browser/core-baseline.test.mjs",
     "preview": "npm run preview --workspace @settlement/playground",

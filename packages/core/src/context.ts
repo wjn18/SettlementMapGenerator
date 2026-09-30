@@ -17,7 +17,7 @@ export class GenerationContext {
   stage = 'options';
   private operations = 0;
   private geometryCount = 0;
-  constructor(seed: number, readonly operationLimit = 2_000_000) { this.random = new Random(seed); }
+  constructor(seed: number, readonly operationLimit = 2_000_000, readonly geometryLimit = 50_000) { this.random = new Random(seed); }
   step(depth = 0): void {
     if (++this.operations > this.operationLimit || depth > 128) {
       throw new ResourceLimitError('Geometry operation or recursion budget exceeded');
@@ -25,7 +25,7 @@ export class GenerationContext {
   }
   geometry(count = 1): void {
     this.geometryCount += count;
-    if (this.geometryCount > 50_000) throw new ResourceLimitError('Generated polygon budget exceeded');
+    if (this.geometryCount > this.geometryLimit) throw new ResourceLimitError('Generated polygon budget exceeded');
   }
 }
 export function remove<T>(array: T[], value: T): void {

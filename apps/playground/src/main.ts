@@ -55,7 +55,7 @@ function setFields(value: GenerateOptions): void {
   seed.value = String(value.seed);
   $<HTMLSelectElement>('river').value = String(value.river ?? false);
   coast.value = String(value.coast ?? false); harbor.value = String(value.harbor ?? true); updateTerrainControls();
-  if (!Array.from(size.options).some(o => o.value === String(value.size))) size.add(new Option(`自定规模 · ${value.size}`, String(value.size)));
+  if (!Array.from(size.options).some(o => o.value === String(value.size))) size.add(new Option(`自定 · ${value.size} 地块`, String(value.size)));
   size.value = String(value.size);
   for (const key of ['plaza', 'castle', 'walls'] as const) $<HTMLSelectElement>(key).value = String(value[key] ?? 'auto');
 }

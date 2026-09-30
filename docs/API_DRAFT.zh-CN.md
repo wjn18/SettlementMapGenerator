@@ -9,11 +9,11 @@ type FeatureChoice = boolean | "auto";
 
 interface GenerateOptions {
   seed: number;            // 必填整数，范围 1..2147483646
-  size: number;            // 初版整数范围 6..40，指城区基础地块规模
+  size: number;            // 整数范围 6..100，指城区基础地块规模
   walls?: FeatureChoice;  // 默认 auto
   castle?: FeatureChoice; // 默认 auto
   plaza?: FeatureChoice;  // 默认 auto
-  maxAttempts?: number;   // 默认 20，允许 1..100
+  maxAttempts?: number;   // size <= 40 默认 20，更大规模默认 40；允许 1..100
 }
 
 interface GenerationError {

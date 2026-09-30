@@ -131,7 +131,7 @@ export const wardRegistry: Readonly<Record<WardType, WardStrategy>> = Object.fre
   },
   Castle: { geometry: w => {
     const p = w.patch.shape.shrinkEq(4), context = w.model.context;
-    return [createCastleFootprint(context, p, () => createOrthoBuilding(context, p, Math.sqrt(p.square) * 4, 0.6))];
+    return [createCastleFootprint(context, p, () => createOrthoBuilding(context, p, Math.max(Math.sqrt(p.square) * 4, w.model.size > 40 ? p.square / 8 : 0), 0.6))];
   } },
   Market: {
     rate: (m, p) => m.inner.some(n => n.ward?.type === 'Market' && n.shape.borders(p.shape)) ? Infinity : m.plaza ? p.shape.square / m.plaza.shape.square : p.shape.distance(m.center),

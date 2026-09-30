@@ -17,7 +17,8 @@ export function generateTownSteps(options: GenerateOptions): Generator<Generatio
     })();
   }
   return (function* (): Generator<GenerationProgress, GenerationResult, void> {
-    const context = new GenerationContext(request.seed), r = context.random;
+    const areaFactor = Math.max(1, (request.size / 40) ** 2);
+    const context = new GenerationContext(request.seed, Math.ceil(2_000_000 * areaFactor), Math.ceil(50_000 * areaFactor)), r = context.random;
     const auto = { plaza: r.bool(), castle: r.bool(), walls: r.bool() };
     const model = new Model(context, request.size, {
       plaza: request.plaza === 'auto' ? auto.plaza : request.plaza,

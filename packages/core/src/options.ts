@@ -17,9 +17,9 @@ export function normalizeOptions(options: GenerateOptions): NormalizedOptions {
   if (options.coast !== undefined && options.coast !== false && !['auto', 'east', 'south', 'west', 'north'].includes(options.coast)) throw new OptionsError('coast must be false, auto, east, south, west or north');
   if (options.harbor !== undefined && typeof options.harbor !== 'boolean') throw new OptionsError('harbor must be boolean');
   return {
-    seed: integer(options.seed, 1, 2147483646, 'seed'), size: integer(options.size, 6, 40, 'size'),
+    seed: integer(options.seed, 1, 2147483646, 'seed'), size: integer(options.size, 6, 100, 'size'),
     plaza: feature('plaza'), castle: feature('castle'), walls: feature('walls'),
-    maxAttempts: integer(options.maxAttempts === undefined ? 20 : options.maxAttempts, 1, 100, 'maxAttempts'),
+    maxAttempts: integer(options.maxAttempts === undefined ? (options.size > 40 ? 40 : 20) : options.maxAttempts, 1, 100, 'maxAttempts'),
     ...(options.river === undefined ? {} : { river: options.river }),
     ...(options.coast === undefined ? {} : { coast: options.coast }),
     ...(options.harbor === undefined ? {} : { harbor: options.harbor }),
