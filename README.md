@@ -4,12 +4,12 @@
 
 采用 **TypeScript 算法库 + 独立绘制指令 + Canvas 默认预览 / SVG 矢量导出**。保留原项目的地图风格，以及 OpenFL 适配层供迁移对照。
 
-当前状态：**P0–P5 已完成；已选定 Canvas 默认预览、SVG 矢量导出。** core 算法保持 0.4.0，绘制层升级 0.5.0；预览提供独立 PNG / SVG 导出按钮，支持切换 OpenFL / Canvas / SVG，以及六组地图的并排细节比较。
+当前状态：**P0–P5 已完成；旧版 Haxe 源码及专用构建工具已退出当前源码树。** 已选定 Canvas 默认预览、SVG 矢量导出。core 算法保持 0.4.0，绘制层升级 0.5.0；预览提供独立 PNG / SVG 导出按钮，支持切换 OpenFL / Canvas / SVG，以及六组地图的并排细节比较。日常开发和测试无需 Haxe 工具链。
 
 - [重构方案](docs/REFACTOR_PLAN.zh-CN.md)：模块边界、迁移阶段、验收标准与后续绘制方案对比。
 - [接口草案](docs/API_DRAFT.zh-CN.md)：生成参数、地图数据、绘制接口与错误处理。
 - [上游来源](docs/UPSTREAM.md)：参考版本、文件范围与许可证。
-- [原项目源码](legacy/TownGeneratorOS/)：保留原 Haxe / OpenFL 实现，供迁移对照。
+- [迁移核对与源码清理](docs/MIGRATION_COMPLETION.zh-CN.md)：功能覆盖、清理范围与验证结果；原实现可从 Git 历史追溯。
 - [P0 验收记录](docs/P0_ACCEPTANCE.zh-CN.md)：交付清单、源码完整性验证与尚未运行的项目。
 - [P1 验收与复现](docs/P1_ACCEPTANCE.zh-CN.md)：锁定工具链、构建命令、18 组旧版基线与浏览器实验结果。
 - [P2 验收记录](docs/P2_ACCEPTANCE.zh-CN.md)：43 项 Node 测试、18 组完整旧版阶段对照、JSON 与状态隔离。
@@ -21,7 +21,7 @@
 - [算法包使用说明](packages/core/README.md)：生成、分阶段调用、数据校验及复现边界。
 - [基线数据说明](tests/fixtures/p1/README.md)：阶段 JSON、截图、哈希和更新规则。
 
-在本目录运行 `node scripts/verify-upstream.mjs` 可离线校验 64 个参考文件及根许可证，无需安装 npm 依赖。文本仅统一 CRLF / LF 后比较，图片按原始字节比较。
+在本目录运行 `npm run verify:assets` 可离线校验保留的字体图片及根许可证，无需安装 npm 依赖。字体位于 `assets/fonts/`，已保存的旧版地图基线继续用于回归测试。
 
 ## 调用算法库
 
@@ -65,8 +65,8 @@ npm run test:p4:packages
 npm run verify:fixtures
 ```
 
-浏览器测试使用本机 Chrome，覆盖开发 / 生产页面与 DPR=1/2。`npm run preview` 在 4174 预览生产产物。旧 P1 接入实验仍可通过 `npm run dev:probe`（5173）及 `npm run test:p1` 运行。旧版 Haxe 构建与兼容提示见 P1 验收文档。
+浏览器测试使用本机 Chrome，覆盖开发 / 生产页面与 DPR=1/2。`npm run preview` 在 4174 预览生产产物。P1 的 TypeScript / OpenFL npm 接入实验仍可通过 `npm run dev:probe`（5173）及 `npm run test:p1` 运行。历史 Haxe 基线的重新采集方式见 [上游来源](docs/UPSTREAM.md)。
 
 ## 来源与许可
 
-参考源码来自 [watabou/TownGeneratorOS](https://github.com/watabou/TownGeneratorOS)，保留其原始文件和 GPL v3 许可证文本，详见 [UPSTREAM.md](docs/UPSTREAM.md) 与 [LICENSE](LICENSE)。
+算法与绘制语义移植自 [watabou/TownGeneratorOS](https://github.com/watabou/TownGeneratorOS)，继续保留作者来源、字体资源和 GPL v3 许可证文本，详见 [UPSTREAM.md](docs/UPSTREAM.md) 与 [LICENSE](LICENSE)。

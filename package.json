@@ -11,7 +11,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "verify:upstream": "node scripts/verify-upstream.mjs",
+    "verify:assets": "node scripts/verify-assets.mjs",
     "dev": "npm run build:packages && npm run dev --workspace @settlement/playground",
     "dev:probe": "npm run dev --workspace @settlement/openfl-probe",
     "build": "npm run build:packages && npm run build --workspace @settlement/playground && npm run build --workspace @settlement/openfl-probe",
@@ -25,11 +25,6 @@
     "test:p1": "playwright test",
     "test:p3": "npm run build:packages && node --test tests/p3/scene.test.mjs",
     "test:p3:browser": "npm run build:packages && npm run build --workspace @settlement/playground && playwright test --config playwright.p3.config.ts",
-    "legacy:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-legacy.ps1",
-    "legacy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-legacy.ps1",
-    "legacy:build:instrumented": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-legacy.ps1 -Instrumented",
-    "baseline:capture": "node scripts/capture-legacy.mjs",
-    "baseline:verify": "node scripts/capture-legacy.mjs --verify",
     "verify:fixtures": "node scripts/verify-fixtures.mjs",
     "test:p4": "npm run build:packages && node --test tests/core/*.test.mjs tests/p3/scene.test.mjs tests/p4/*.test.mjs",
     "test:p4:batch": "npm run build:packages && node scripts/check-p4-batch.mjs",

@@ -1,5 +1,7 @@
 # P1 验收与复现
 
+> 历史验收记录：旧版源码与专用工具已在迁移完成后移除。本文的 `verify:upstream`、`legacy:*`、`baseline:*` 命令仅适用于清理前提交；当前命令及历史复现入口见 [上游来源](UPSTREAM.md)。
+
 日期：2026-09-29。结论：**P1 完成，可以进入 P2 算法移植**。
 
 验收环境为 Windows x64，Chrome 153.0.8010.53，800×800 CSS 像素地图视口。本文的通过结论仅覆盖实际运行的 HTML5 / Chrome 环境。
@@ -38,7 +40,7 @@
 | Playwright / pngjs | 1.63.0 / 7.0.0 |
 | Chrome | 153.0.8010.53（本机 Chrome，非 Playwright 下载的浏览器） |
 
-npm 依赖使用精确版本，传递依赖保存在 [package-lock.json](../package-lock.json)。旧工具链的官方下载地址和实测 SHA-256 保存在 [toolchain.json](../tools/legacy-harness/toolchain.json)。Haxe 4.3.7 仅提供现代 Haxelib，不用于编译原项目。
+npm 依赖使用精确版本，传递依赖保存在 [package-lock.json](../package-lock.json)。旧工具链的官方下载地址和实测 SHA-256 保存在 [toolchain.json](https://github.com/wjn18/SettlementMapGenerator/blob/72a554199cd775933f684ab55a2cf91562284ab4/tools/legacy-harness/toolchain.json)。Haxe 4.3.7 仅提供现代 Haxelib，不用于编译原项目。
 
 ## 从检出目录复现
 

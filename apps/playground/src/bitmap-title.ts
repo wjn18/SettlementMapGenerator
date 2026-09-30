@@ -1,4 +1,4 @@
-import fontUrl from '../../../legacy/TownGeneratorOS/Assets/maroubra.png?url';
+import fontUrl from '../../../assets/fonts/maroubra.png?url';
 const image = new Image(); image.src = fontUrl;
 const ready = image.decode();
 // Same separator scan as legacy BitmapText; only this UI label uses the atlas.

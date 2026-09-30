@@ -1,6 +1,6 @@
 # P1 参考数据
 
-由原上游提交 `7fbc87a9398cc508af24de93f79cf2ad027f352b`、锁定的 Haxe 工具链和 Chrome 153.0.8010.53 实际生成。复现命令和环境限制见 [P1 验收记录](../../../docs/P1_ACCEPTANCE.zh-CN.md)。
+由原上游提交 `7fbc87a9398cc508af24de93f79cf2ad027f352b`、锁定的 Haxe 工具链和 Chrome 153.0.8010.53 实际生成。原源码和专用构建工具已退出当前源码树，数据继续保留；历史复现入口见 [上游来源](../../../docs/UPSTREAM.md)，采集环境限制见 [P1 验收记录](../../../docs/P1_ACCEPTANCE.zh-CN.md)。
 
 ## 文件
 
@@ -33,6 +33,6 @@ console.log(data.attempts.at(-1).stages.at(-1));
 
 ## 复核与更新
 
-`npm run verify:fixtures` 离线检查已保存数据和截图的完整性、样本覆盖及字体布局。`npm run baseline:verify` 使用已构建的原版和观测版重新生成，并检查阶段哈希；`npm run test:p1` 检查当前 npm 示例。
+`npm run verify:fixtures` 离线检查已保存数据和截图的完整性、样本覆盖及字体布局。`npm run test:p2:browser` 使用这些固定数据对比同浏览器的迁移结果；`npm run test:p1` 检查当前 TypeScript / OpenFL npm 示例。
 
-如需有意更新基线，先运行 `npm run baseline:capture`，检查 `artifacts/p1/legacy/` 的差异、报告和截图，再将经过审查的结果复制到本目录。不得通过自动覆盖期望值使回归测试通过。更换编译器、浏览器或算法时，需要在验收记录中说明原因；P2 移植结果应保存在独立位置，保留本 Haxe 基线。
+如需有意更新历史基线，先在独立目录检出 [上游来源](../../../docs/UPSTREAM.md) 指定的清理前提交，再使用该版本的 `baseline:capture` / `baseline:verify` 命令，审查结果后才迁入本目录。这些命令不再属于当前开发流程。不得通过自动覆盖期望值使回归测试通过。更换编译器、浏览器或算法时，需要在验收记录中说明原因；新算法结果应保存在独立位置，保留本 Haxe 基线。

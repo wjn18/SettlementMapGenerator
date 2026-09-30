@@ -2,6 +2,8 @@
 
 日期：2026-09-30。状态：P0–P5 已完成。验收证据见 [P0](P0_ACCEPTANCE.zh-CN.md)、[P1](P1_ACCEPTANCE.zh-CN.md)、[P2](P2_ACCEPTANCE.zh-CN.md) 、[P3](P3_ACCEPTANCE.zh-CN.md) 和 [P4 验收记录](P4_ACCEPTANCE.zh-CN.md)。P5 已根据用户选择采用 Canvas 默认预览、SVG 矢量导出，见 [P5 验收](P5_ACCEPTANCE.zh-CN.md)。
 
+2026-09-30 收尾：已核对下列迁移对象，当前源码树移除了旧版 Haxe 实现与专用构建工具；详见 [迁移核对与源码清理](MIGRATION_COMPLETION.zh-CN.md)。本文涉及旧路径、最初交付和阶段先后顺序的内容用于说明迁移过程，旧代码通过 Git 历史追溯。
+
 ## 1. 目标与技术决策
 
 将原 Haxe 应用重构为可独立调用的 TypeScript 城镇生成库，第一版沿用 OpenFL 绘制。生成结果可在浏览器、Node.js 工具中使用，也可通过 JSON 交给其他平台处理。
@@ -22,7 +24,7 @@ OpenFL npm 路线面向 Web 环境，不能据此承诺保留 Haxe 的原生 C++
 
 ## 2. 原项目的迁移对象
 
-下表业务路径相对 `legacy/TownGeneratorOS/Source/com/watabou/towngenerator/`；`geom/`、`coogee/`、`utils/` 位于其上一级 `com/watabou/` 中。
+下表业务路径相对历史版本的 `legacy/TownGeneratorOS/Source/com/watabou/towngenerator/`；`geom/`、`coogee/`、`utils/` 位于其上一级 `com/watabou/` 中。实际完成的模块位置见迁移核对记录。
 
 | 原模块 | 当前责任 | 目标位置 |
 | --- | --- | --- |
@@ -71,7 +73,7 @@ apps/
 tests/
   fixtures/        # 固定种子、阶段输出与视觉参考
   integration/
-legacy/TownGeneratorOS/
+assets/fonts/       # 仍在使用的上游字体资源
 docs/
 ```
 

@@ -1,5 +1,7 @@
 # P0 验收记录
 
+> 历史验收记录：旧版源码与专用工具已在迁移完成后移除。本文的 `verify:upstream`、`legacy:*`、`baseline:*` 命令仅适用于清理前提交；当前命令及历史复现入口见 [上游来源](UPSTREAM.md)。
+
 验收日期：2026-09-29。结论：**P0 完成**。
 
 本阶段按重构方案中“P0：方案与参考源码”的范围验收，交付的是迁移设计和可追溯的参考基线。
@@ -11,9 +13,9 @@
 | 重构方案 | [REFACTOR_PLAN.zh-CN.md](REFACTOR_PLAN.zh-CN.md)：确定 TypeScript 内核、OpenFL 适配器、阶段顺序与验收标准 |
 | 接口草案 | [API_DRAFT.zh-CN.md](API_DRAFT.zh-CN.md)：覆盖生成参数、错误、共享顶点 ID、JSON 数据和绘制接口；明确尚未实现、尚未冻结 |
 | 上游可追溯性 | [UPSTREAM.md](UPSTREAM.md)：记录作者、仓库、完整提交哈希、导入范围和原依赖声明 |
-| 参考源码 | [legacy/TownGeneratorOS](../legacy/TownGeneratorOS/)：固定提交的 64 个文件完整保留，无额外参考文件 |
+| 参考源码 | [legacy/TownGeneratorOS](https://github.com/wjn18/SettlementMapGenerator/tree/72a554199cd775933f684ab55a2cf91562284ab4/legacy/TownGeneratorOS/)：固定提交的 64 个文件完整保留，无额外参考文件 |
 | 许可证与作者声明 | 参考目录中的 LICENSE / README 以及[根许可证](../LICENSE)已与固定提交核对 |
-| 可复查证据 | [upstream-manifest.json](upstream-manifest.json) 与 [verify-upstream.mjs](../scripts/verify-upstream.mjs)：提供每个文件的 Git blob ID、上游字节数和 SHA-256，以及离线校验入口 |
+| 可复查证据 | [upstream-manifest.json](upstream-manifest.json) 与 [verify-upstream.mjs](https://github.com/wjn18/SettlementMapGenerator/blob/72a554199cd775933f684ab55a2cf91562284ab4/scripts/verify-upstream.mjs)：提供每个文件的 Git blob ID、上游字节数和 SHA-256，以及离线校验入口 |
 | 实施边界 | README、方案和本文均明确列出未实施、未运行事项 |
 
 ## 已执行验证

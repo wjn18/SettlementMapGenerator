@@ -1,7 +1,7 @@
 import type Graphics from 'openfl/lib/openfl/display/Graphics';
 import { Stage, Sprite, BitmapData, MouseEvent, Event, CapsStyle, JointStyle, LineScaleMode } from './openfl';
 import { bitmapLabel } from './bitmap-font';
-import fontUrl from '../../../legacy/TownGeneratorOS/Assets/maroubra.png?url';
+import fontUrl from '../../../assets/fonts/maroubra.png?url';
 import './style.css';
 
 const host = document.querySelector<HTMLDivElement>('#map')!;
