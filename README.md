@@ -2,9 +2,9 @@
 
 面向多个项目复用的城镇地图生成器，首个演示目标为 Web。
 
-拟采用 **TypeScript 算法库 + OpenFL 绘制适配层**。先沿用 OpenFL 的绘制能力和原项目的地图风格；后续用同一份地图数据比较原生 SVG、Canvas，再选择显示方案。
+采用 **TypeScript 算法库 + 独立绘制指令 + OpenFL 绘制适配层**。保留原项目的地图风格；后续可用同一份地图数据比较原生 SVG、Canvas。
 
-当前状态：**P0、P1、P2 已完成。纯 TypeScript 内核可在 Node.js 无 DOM 环境生成地图；正式地图预览属于下一阶段 P3。**
+当前状态：**P0–P3 已完成。Node.js 纯算法库和真实地图预览均可运行；支持种子/规模、主题、悬停、缩放平移及 JSON 导入导出。**
 
 - [重构方案](docs/REFACTOR_PLAN.zh-CN.md)：模块边界、迁移阶段、验收标准与后续绘制方案对比。
 - [接口草案](docs/API_DRAFT.zh-CN.md)：生成参数、地图数据、绘制接口与错误处理。
@@ -13,6 +13,7 @@
 - [P0 验收记录](docs/P0_ACCEPTANCE.zh-CN.md)：交付清单、源码完整性验证与尚未运行的项目。
 - [P1 验收与复现](docs/P1_ACCEPTANCE.zh-CN.md)：锁定工具链、构建命令、18 组旧版基线与浏览器实验结果。
 - [P2 验收记录](docs/P2_ACCEPTANCE.zh-CN.md)：43 项 Node 测试、18 组完整旧版阶段对照、JSON 与状态隔离。
+- [P3 验收记录](docs/P3_ACCEPTANCE.zh-CN.md)：真实地图预览、6 项场景测试、16 项浏览器测试与旧版截图对照。
 - [算法包使用说明](packages/core/README.md)：生成、分阶段调用、数据校验及复现边界。
 - [基线数据说明](tests/fixtures/p1/README.md)：阶段 JSON、截图、哈希和更新规则。
 
@@ -42,7 +43,7 @@ npm run test:p2:browser
 node scripts/generate-town.mjs 12345 24 town.json
 ```
 
-## 运行 OpenFL 接入示例
+## 运行地图预览
 
 在本目录运行（已验证 Node.js 24.19.0 / npm 11.17.0）：
 
@@ -51,15 +52,16 @@ npm ci
 npm run dev
 ```
 
-打开 [本地接入示例](http://127.0.0.1:5173)。本页使用固定几何测试 OpenFL、字体、透明命中区域和缩放；P3 再接入已实现的 TypeScript 生成器。
+打开 [城镇地图工坊](http://127.0.0.1:5174)。调整种子和规模生成地图，切换图纸主题，滚轮缩放、拖动平移、悬停查看街区。JSON 导入保留原始几何，导出可用于其他平台。键盘方向键移动、`+`/`-` 缩放、`0` 复位。
 
 ```sh
 npm run build
-npm run test:p1
+npm run test:p3
+npm run test:p3:browser
 npm run verify:fixtures
 ```
 
-浏览器测试使用本机 Chrome，覆盖开发 / 生产页面与 DPR=1/2。旧版构建在 Windows x64 上使用项目内工具链，依次运行 `npm run legacy:setup`、`npm run legacy:build`、`npm run legacy:build:instrumented`、`npm run baseline:verify`。详情和已知工具链提示见 P1 验收文档。
+浏览器测试使用本机 Chrome，覆盖开发 / 生产页面与 DPR=1/2。`npm run preview` 在 4174 预览生产产物。旧 P1 接入实验仍可通过 `npm run dev:probe`（5173）及 `npm run test:p1` 运行。旧版 Haxe 构建与兼容提示见 P1 验收文档。
 
 ## 来源与许可
 

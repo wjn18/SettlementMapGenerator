@@ -1,6 +1,6 @@
 # SettlementMapGenerator 重构方案
 
-日期：2026-09-29。状态：P0、P1、P2 已完成。验收证据见 [P0](P0_ACCEPTANCE.zh-CN.md)、[P1](P1_ACCEPTANCE.zh-CN.md) 和 [P2 验收记录](P2_ACCEPTANCE.zh-CN.md)。下一阶段为 P3 正式地图预览。
+日期：2026-09-29。状态：P0–P3 已完成。验收证据见 [P0](P0_ACCEPTANCE.zh-CN.md)、[P1](P1_ACCEPTANCE.zh-CN.md)、[P2](P2_ACCEPTANCE.zh-CN.md) 和 [P3 验收记录](P3_ACCEPTANCE.zh-CN.md)。下一阶段为 P4 稳定性与库交付。
 
 ## 1. 目标与技术决策
 
@@ -53,7 +53,7 @@ flowchart TD
     App --> OpenFL
 ```
 
-P2 已建立 `packages/core/src`，按以下职责使用独立 `.ts` 模块（geometry、voronoi、cutter、context、model、topology、generator、options、wards、types、export、serialization）。下图仍表示后续完整布局；map-scene、renderer-openfl、playground 尚未实施，P1 接入实验保留在 `apps/openfl-probe`：
+P2 已建立 `packages/core/src`，按以下职责使用独立 `.ts` 模块（geometry、voronoi、cutter、context、model、topology、generator、options、wards、types、export、serialization）。P3 已完成 map-scene、renderer-openfl 和 playground；下图表达职责划分，实际模块采用少量平铺 `.ts` 文件。P1 接入实验保留在 `apps/openfl-probe`：
 
 ```text
 packages/
@@ -105,7 +105,7 @@ docs/
 
 `schemaVersion` 描述数据格式；`generatorVersion` 描述生成算法；包版本描述软件发布。它们分别管理。
 
-可复现的范围是：同一生成器版本、规范化配置与种子、同一 JS 运行环境中获得稳定输出。跨版本或跨 JS 引擎不默认承诺同一个种子对应逐位相同的地图。P2 已发现 Node / Chrome 三角函数末位差异会改变部分建筑切割，并在验收记录中保留证据；跨环境共享同一地图使用 JSON。同 Chrome 环境的旧版 18 组全部阶段精确一致，这不代表 P3 绘制截图已经验收。
+可复现的范围是：同一生成器版本、规范化配置与种子、同一 JS 运行环境中获得稳定输出。跨版本或跨 JS 引擎不默认承诺同一个种子对应逐位相同的地图。P2 已发现 Node / Chrome 三角函数末位差异会改变部分建筑切割，并在验收记录中保留证据；跨环境共享同一地图使用 JSON。同 Chrome 环境的旧版 18 组全部阶段精确一致；P3 绘制另以固定旧版数据和 DPR 1/2 截图完成验收，范围与容差见 [P3 验收记录](P3_ACCEPTANCE.zh-CN.md)。
 
 配置校验失败直接返回错误；可恢复的几何失败最多尝试 `maxAttempts` 次。第一版草案默认 20 次，另设切割深度与几何数量上限，避免单次尝试中的递归不终止。重试继续使用该次调用的局部随机流，保留阶段和尝试次数。
 
@@ -138,7 +138,7 @@ OpenFL 适配器负责 Stage / Sprite / Graphics、尺寸与 DPR、事件监听�
 | P0：方案与参考源码 | 已完成（2026-09-29） | 方案、接口草案、上游哈希、64 个参考文件与许可证已核对；离线校验通过，未运行项见验收记录 |
 | P1：可复现基线 | 已完成（2026-09-29） | 原 Haxe HTML5 构建通过；18 组阶段数据和 19 张旧版截图；OpenFL 开发 / 生产 × DPR=1/2 的 4 项浏览器测试通过；版本已锁定 |
 | P2：纯算法库 | 已完成（2026-09-29） | core ESM/类型声明；43 项 Node 测试通过；同 Chrome 的 18 组旧版阶段精确一致；JSON 引用与交错状态隔离通过，跨引擎浮点边界已记录 |
-| P3：OpenFL 地图预览 | 移植绘制语义、主题和交互；参数与 URL 放在示例层 | 实际地图显示、调整规模、切换种子、悬停提示、JSON 导入导出；固定数据截图比对通过 |
+| P3：OpenFL 地图预览 | 已完成（2026-09-29） | 绘制指令/适配器/真实预览；参数与 URL、悬停、主题、视口及 JSON；6 项场景测试和 16 项浏览器测试通过，旧版与固定数据截图对照通过 |
 | P4：稳定性与库交付 | 正确寻路、退化输入、资源释放、包消费测试和文档 | 明确错误返回；批量种子结果报告；打包后由独立 Node.js / 浏览器示例导入成功；OpenFL 不进入 core 依赖图 |
 | P5：绘制器评估 | 后续才做 SVG、Canvas 最小实现 | 同一批 TownData / MapScene 对照图及性能表，用户看过实际效果后选择保留哪一种 |
 

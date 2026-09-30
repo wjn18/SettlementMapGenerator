@@ -1,0 +1,6 @@
+{
+  "name": "@settlement/map-scene", "version": "0.3.0", "type": "module", "license": "GPL-3.0-only",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md", "LICENSE"], "sideEffects": false,
+  "scripts": { "build": "tsc -p tsconfig.json" }, "dependencies": { "@settlement/core": "0.2.0" }
+}

@@ -1,0 +1,72 @@
+{
+  "browser": "153.0.8010.53",
+  "openfl": "9.5.2",
+  "viewport": {
+    "width": 800,
+    "height": 800
+  },
+  "comparisons": [
+    {
+      "seed": 42,
+      "size": 15,
+      "dpr": 1,
+      "meanAbsoluteChannelError": 0.5759872335821703,
+      "changedPixelRatio": 0.016205777345017852,
+      "pixels": 616200,
+      "channelThreshold": 16
+    },
+    {
+      "seed": 1,
+      "size": 6,
+      "dpr": 1,
+      "meanAbsoluteChannelError": 0.13532132424537488,
+      "changedPixelRatio": 0.003862382343395002,
+      "pixels": 616200,
+      "channelThreshold": 16
+    },
+    {
+      "seed": 12345,
+      "size": 24,
+      "dpr": 1,
+      "meanAbsoluteChannelError": 0.6708968949475279,
+      "changedPixelRatio": 0.020017851346965272,
+      "pixels": 616200,
+      "channelThreshold": 16
+    },
+    {
+      "seed": 12345,
+      "size": 24,
+      "dpr": 2,
+      "meanAbsoluteChannelError": 0.46019893432868114,
+      "changedPixelRatio": 0.009472979552093476,
+      "pixels": 2464800,
+      "channelThreshold": 16
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "map-1-6-dpr1.png",
+      "sha256": "81517f2f47da4ec8e97a28780d27eb061f3ee2686e2b9d567009f51772c49287"
+    },
+    {
+      "file": "map-1-6-dpr2.png",
+      "sha256": "c4254a96ee100147bcf4c904aab4306496ef52ef8515fc91d3d9926b425060e9"
+    },
+    {
+      "file": "map-12345-24-dpr1.png",
+      "sha256": "d43f3630655350e05767cce514a23a92998d7b7c6d3d12958d4d0ad3330cbd17"
+    },
+    {
+      "file": "map-12345-24-dpr2.png",
+      "sha256": "e1d3c15a40b98d0ee4f26660e17b1a3f4672de4a5851ac5faf596e8a377f89af"
+    },
+    {
+      "file": "map-42-15-dpr1.png",
+      "sha256": "71e1e7e1d66642f6807afc8d3345b032733761365f7e12c270278aa6130fbacc"
+    },
+    {
+      "file": "map-42-15-dpr2.png",
+      "sha256": "81d723e0c51556b01a2a142e5e6e718a7170cb4063de5f80a4d7c34c7fc27678"
+    }
+  ]
+}

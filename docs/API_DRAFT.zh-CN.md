@@ -1,6 +1,6 @@
 # API 与数据接口草案
 
-P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。绘制接口仍是 P3 草案。算法版本为 `0.2.0-legacy`，尚未发布 npm 包。
+P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。P3 已实现下述绘制接口，见 [map-scene](../packages/map-scene/README.md) 与 [renderer-openfl](../packages/renderer-openfl/README.md)。算法版本仍为 `0.2.0-legacy`，尚未发布 npm 包。
 
 ## 生成入口
 
@@ -112,7 +112,7 @@ P2 已实现 `serializeTown`、`deserializeTown`、`validateTown`，JSON 导入�
 
 ## 绘制接口
 
-以下表达公共边界，完整主题字段在接入实验中确定。只有绘制包的挂载接口接触 DOM。
+以下为 P3 已实现的公共边界。MapScene 包不接触 DOM；只有 OpenFL 绘制包的挂载接口接触 DOM。
 
 ```ts
 interface Stroke {
