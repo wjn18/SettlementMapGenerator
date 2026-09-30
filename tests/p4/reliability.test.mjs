@@ -17,7 +17,7 @@ test('road-first generation is independent of the archived patch routing harness
 test('former farm overflow sites generate contained geometry with bounded attempts', () => {
   for (const options of [{seed:708675149,size:6},{seed:2147483646,size:6,plaza:true,castle:false,walls:true}]) {
     const result=generateTown(options);assert.equal(result.ok,true);assert(result.town.resolved.attempts<=20);
-    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.9.0');
+    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.10.0');
     const vertices=new Map(result.town.vertices.map(v=>[v.id,v]));
     for(const b of result.town.buildings) {
       const district=result.town.districts.find(d=>d.id===b.districtId);

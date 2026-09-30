@@ -93,5 +93,5 @@ for (const seed of [1, 42, 12345]) test(`walls enclose the older core and leave 
   assert.ok(city.some(d => d.withinWalls)); assert.ok(city.some(d => !d.withinWalls));
   const wall = result.town.walls.find(w => w.kind === 'city'), points = new Map(result.town.vertices.map(v => [v.id, new Point(v.x, v.y)]));
   const outline = new Polygon(wall.boundary.map(id => points.get(id)));
-  assert.ok(outline.some((p, i) => { const a = p.subtract(outline[(i + outline.length - 1) % outline.length]), b = outline[(i + 1) % outline.length].subtract(p); return a.x * b.y - a.y * b.x < -1e-5; }));
+  assert.ok(outline.every((p, i) => { const a = p.subtract(outline[(i + outline.length - 1) % outline.length]), b = outline[(i + 1) % outline.length].subtract(p); return a.x * b.y - a.y * b.x >= -1e-5; }), 'defensive support lines bridge parcel recesses');
 });

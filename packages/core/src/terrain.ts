@@ -4,6 +4,7 @@ import { Model, Patch } from './model.js';
 import { SkeletonModel } from './skeleton.js';
 import { GraphNode, shortestPath } from './pathfinding.js';
 import { createWard } from './wards.js';
+import { rebuildCityFortifications } from './fortifications.js';
 import { exportTown } from './export.js';
 import { distanceToPath } from './river.js';
 import { inRing, mixPoint, pointKey, positiveRing, splitSegment, subtractRing } from './terrain-geometry.js';
@@ -15,7 +16,7 @@ interface Plan {
   local(p: Point2): Point; world(p: Point2): Point;
 }
 interface ShoreEdge { path: Polygon; patch: Patch; kind: 'coast' | 'river' }
-export const TERRAIN_GENERATOR_VERSION = '0.9.0';
+export const TERRAIN_GENERATOR_VERSION = '0.10.0';
 const wet = (p: Point2, plan: Plan): boolean => plan.cuts.some(ring => inRing(ring, p));
 const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => {
   if (shape.some(p => inRing(cut, p)) || cut.some(p => inRing(shape, p))) return true;
@@ -285,7 +286,7 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
   yield 'buildGeometry'; model.context.stage = 'export';
   const town = exportTown(model, request, attempts);
   town.generatorVersion = TERRAIN_GENERATOR_VERSION;
-  if (!request.river && !request.coast) return town;
+  if (!request.river && !request.coast) { rebuildCityFortifications(town); return town; }
   const plain = (p: Point2): Point2 => ({ x: p.x, y: p.y });
   town.terrain = { ...(plan.coast ? { coast: { ...plan.coast, shoreline: plan.coast.shoreline.map(plain), water: plan.coast.water.map(plain) } } : {}), waterfronts: [], docks: [] };
   const index = new Map(town.vertices.map(v => [v.id, v]));
@@ -320,6 +321,7 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
     if (!town.terrain.docks.length) throw new RetryableError('No accessible harbor frontage');
   }
   trimWalls(town, plan);
+  rebuildCityFortifications(town, plan.cuts);
   // Include water extents in world bounds, keeping exact bounds validation and exports.
   for (const p of [...(plan.coast?.water ?? []), ...(plan.river?.surface ?? [])]) town.vertices.push({ id: `v${town.vertices.length}`, x: p.x, y: p.y });
   town.bounds = { minX: Math.min(...town.vertices.map(v => v.x)), minY: Math.min(...town.vertices.map(v => v.y)), maxX: Math.max(...town.vertices.map(v => v.x)), maxY: Math.max(...town.vertices.map(v => v.y)) };

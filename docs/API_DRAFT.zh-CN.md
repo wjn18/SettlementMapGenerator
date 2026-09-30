@@ -1,6 +1,6 @@
 # API 与数据接口草案
 
-P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。P3 已实现下述绘制接口，P5 增加 Canvas/SVG，MapRenderer 类型由 map-scene 统一导出，见 [map-scene](../packages/map-scene/README.md) 与 [renderer-openfl](../packages/renderer-openfl/README.md)。core 算法版本为 `0.9.0`、包版本为 `0.4.0`，P5 绘制层包版本为 `0.5.0`。默认先规划贯通道路与错位支路，再沿道路连续扩展城区，城墙随后围住较早开发的核心；水域裁切后补足陆地地块并连接桥梁，最后生成避让道路且不越界的建筑；数据格式仍为 `1`。已有地图请通过 JSON 保留，旧种子在新算法下不保证生成原图。独立消费见 [示例](../examples/README.md)，尚未发布 npm 包。
+P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。P3 已实现下述绘制接口，P5 增加 Canvas/SVG，MapRenderer 类型由 map-scene 统一导出，见 [map-scene](../packages/map-scene/README.md) 与 [renderer-openfl](../packages/renderer-openfl/README.md)。core 算法版本为 `0.10.0`、包版本为 `0.4.0`，P5 绘制层包版本为 `0.5.0`。默认先规划贯通道路与错位支路，再沿道路连续扩展城区，城墙以独立紧凑包络围住核心，并与穿墙道路共享城门顶点；水域裁切后补足陆地地块并连接桥梁，最后生成避让道路且不越界的建筑；数据格式仍为 `1`。已有地图请通过 JSON 保留，旧种子在新算法下不保证生成原图。独立消费见 [示例](../examples/README.md)，尚未发布 npm 包。
 
 ## 生成入口
 
