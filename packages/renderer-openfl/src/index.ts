@@ -1,19 +1,15 @@
 import { pointInRing } from '@settlement/map-scene';
-import type { MapScene, Viewport, DrawCommand } from '@settlement/map-scene';
+import type { MapScene, Viewport, DrawCommand, MapRenderer } from '@settlement/map-scene';
+export type { MapRenderer } from '@settlement/map-scene';
 import type Graphics from 'openfl/lib/openfl/display/Graphics';
 import { Stage, Sprite, CapsStyle, JointStyle, LineScaleMode } from './openfl.js';
-import { disposeRuntime } from './runtime.js';
-export interface MapRenderer {
-  render(scene: MapScene): void;
-  setViewport(viewport: Viewport): void;
-  resize(cssWidth: number, cssHeight: number, dpr: number): void;
-  pick(cssX: number, cssY: number): string | null;
-  dispose(): void;
-}
+import { disposeRuntime, prepareShaderCache, ownShaderCache } from './runtime.js';
 const color = (value: string): number => parseInt(value.slice(1), 16);
 export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
   const mount = document.createElement('div'); mount.style.cssText = 'width:100%;height:100%;overflow:hidden'; container.append(mount);
+  prepareShaderCache();
   const stage = new Stage(0, 0, 0xccc5b8, undefined, { element: mount, renderer: 'webgl2', allowHighDPI: true, context: { antialiasing: 4, preserveDrawingBuffer: true } });
+  const releaseShaders = ownShaderCache();
   const sprite = new Sprite(); sprite.mouseEnabled = false; stage.addChild(sprite);
   let scene: MapScene | null = null, viewport: Viewport = { centerX: 0, centerY: 0, zoom: 1 };
   let width = container.clientWidth, height = container.clientHeight, disposed = false;
@@ -68,7 +64,7 @@ export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
     dispose() {
       if (disposed) return; disposed = true; scene = null; sprite.graphics.clear(); stage.removeChild(sprite);
       const canvas = mount.querySelector('canvas'), gl = canvas?.getContext('webgl2');
-      disposeRuntime(stage); gl?.getExtension('WEBGL_lose_context')?.loseContext(); mount.remove();
+      disposeRuntime(stage); releaseShaders(); gl?.getExtension('WEBGL_lose_context')?.loseContext(); mount.remove();
     },
   };
   return api;

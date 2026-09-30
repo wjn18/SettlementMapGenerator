@@ -15,7 +15,7 @@
     "dev": "npm run build:packages && npm run dev --workspace @settlement/playground",
     "dev:probe": "npm run dev --workspace @settlement/openfl-probe",
     "build": "npm run build:packages && npm run build --workspace @settlement/playground && npm run build --workspace @settlement/openfl-probe",
-    "build:packages": "npm run build:core && npm run build --workspace @settlement/map-scene && npm run build --workspace @settlement/renderer-openfl",
+    "build:packages": "npm run build:core && npm run build --workspace @settlement/map-scene && npm run build --workspace @settlement/renderer-openfl && npm run build --workspace @settlement/renderer-canvas && npm run build --workspace @settlement/renderer-svg",
     "build:core": "npm run build --workspace @settlement/core",
     "generate": "node scripts/generate-town.mjs",
     "test:p2": "npm run build:core && node --test tests/core/*.test.mjs",
@@ -34,7 +34,10 @@
     "test:p4": "npm run build:packages && node --test tests/core/*.test.mjs tests/p3/scene.test.mjs tests/p4/*.test.mjs",
     "test:p4:batch": "npm run build:packages && node scripts/check-p4-batch.mjs",
     "test:p4:packages": "npm run build:packages && node scripts/check-p4-packages.mjs",
-    "test:p4:browser": "npm run build:packages && npm run build --workspace @settlement/playground && playwright test --config playwright.p4.config.ts"
+    "test:p4:browser": "npm run build:packages && npm run build --workspace @settlement/playground && playwright test --config playwright.p4.config.ts",
+    "test:p5": "npm run build:packages && npm run build --workspace @settlement/playground && playwright test --config playwright.p5.config.ts",
+    "benchmark:p5": "npm run build:packages && npm run build --workspace @settlement/playground && node scripts/benchmark-p5.mjs",
+    "test:p5:packages": "npm run build:packages && node scripts/check-p4-packages.mjs --native"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

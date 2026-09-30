@@ -3,7 +3,8 @@ import { GenerationTask } from './generation-task';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds } from '@settlement/core';
 import { buildMapScene, fitViewport, THEMES } from '@settlement/map-scene';
 import type { MapScene, Viewport } from '@settlement/map-scene';
-import { createOpenFLRenderer } from '@settlement/renderer-openfl';
+import { rendererFactories, isRendererKind, exportSceneImage, download } from './renderers';
+import type { RendererKind } from './renderers';
 import { bitmapTitle } from './bitmap-title';
 import './style.css';
 
@@ -13,7 +14,9 @@ const seed = $<HTMLInputElement>('seed'), size = $<HTMLSelectElement>('size'), t
 const file = $<HTMLInputElement>('file'), tooltip = $('tooltip');
 const params = new URLSearchParams(location.search);
 if (params.get('capture') === '1') document.body.dataset.capture = 'true';
-let renderer = createOpenFLRenderer(host), town: TownData | null = null, scene: MapScene | null = null;
+let rendererKind: RendererKind = isRendererKind(params.get('renderer')) ? params.get('renderer') as RendererKind : 'canvas';
+let renderer = rendererFactories[rendererKind](host), town: TownData | null = null, scene: MapScene | null = null;
+$<HTMLSelectElement>('renderer').value = rendererKind;
 let viewport: Viewport = { centerX: 0, centerY: 0, zoom: 1 }, baseZoom = 1, generationCount = 0, revision = 0;
 let width = 1, height = 1;
 let autoFit = true;
@@ -36,7 +39,8 @@ function syncURL(): void {
   if (!town) return;
   const url = new URL(location.href);
   for (const [key, value] of Object.entries(town.request)) url.searchParams.set(key, String(value));
-  url.searchParams.set('theme', theme.value); history.replaceState(null, '', url);
+  url.searchParams.set('theme', theme.value);
+  url.searchParams.set('renderer',rendererKind); history.replaceState(null,'',url);
 }
 function cityBounds(): Bounds {
   if (!town) return { minX: -100, minY: -100, maxX: 100, maxY: 100 };
@@ -60,6 +64,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   const nextScene = buildMapScene(next, palette());
   renderer.render(nextScene); town = next; scene = nextScene; revision++; setFields(next.request);
   error.hidden = true; tooltip.hidden = true; $<HTMLButtonElement>('export').disabled = false;
+  $<HTMLButtonElement>('export-image').disabled = false; $<HTMLButtonElement>('export-svg').disabled = false;
   $('district-count').textContent = String(next.districts.filter(d => d.withinCity).length);
   $('building-count').textContent = next.buildings.length.toLocaleString('en-US');
   $('map-title').replaceChildren(document.createTextNode('城镇图册 '), Object.assign(document.createElement('span'), { textContent: `№ ${next.resolved.seed}` }));
@@ -87,6 +92,21 @@ $('cancel').addEventListener('click', () => generation.cancel());
 form.addEventListener('submit', event => { event.preventDefault(); void generate(); });
 $('random').addEventListener('click', () => { const bytes = crypto.getRandomValues(new Uint32Array(1)); seed.value = String(bytes[0] % 2147483646 + 1); void generate(); });
 theme.addEventListener('change', () => { try { drawTheme(); syncURL(); } catch (e) { notifyError(String(e)); } });
+$('renderer').addEventListener('change',()=>{
+  const choice=$<HTMLSelectElement>('renderer').value;if(!isRendererKind(choice))return;
+  renderer.dispose();rendererKind=choice;renderer=rendererFactories[choice](host);
+  renderer.resize(width,height,Math.min(devicePixelRatio||1,8));if(scene)renderer.render(scene);renderer.setViewport(viewport);syncURL();
+});
+async function exportMap(format: 'png' | 'svg'): Promise<void> {
+  if (!town || !scene) return;
+  const filename = `settlement-${town.resolved.seed}.${format}`;
+  try {
+    const blob = await exportSceneImage(scene, { ...viewport }, width, height, Math.min(devicePixelRatio || 1, 8), format);
+    download(blob, filename); status.textContent = `地图 ${format.toUpperCase()} 已导出`;
+  } catch (e) { notifyError(String(e)); }
+}
+$('export-image').addEventListener('click', () => { void exportMap('png'); });
+$('export-svg').addEventListener('click', () => { void exportMap('svg'); });
 $('import').addEventListener('click', () => file.click());
 file.addEventListener('change', async () => {
   const selected = file.files?.[0]; if (!selected) return;
@@ -141,7 +161,7 @@ if (params.get('test') === '1') Object.defineProperty(window, '__playground', { 
   generate, cancel: () => generation.cancel(),
   pick(x: number, y: number) { return renderer.pick(x, y); },
   resize(w: number, h: number, dpr: number) { width = w; height = h; renderer.resize(w, h, dpr); },
-  remount() { renderer.dispose(); renderer.dispose(); renderer = createOpenFLRenderer(host); resize(); if (scene) renderer.render(scene); updateViewport(viewport); },
+  remount() { renderer.dispose(); renderer.dispose(); renderer = rendererFactories[rendererKind](host); resize(); if (scene) renderer.render(scene); updateViewport(viewport); },
 } });
 const initial: GenerateOptions = { seed: Number(params.get('seed') ?? 12345), size: Number(params.get('size') ?? 24) };
 for (const key of ['plaza', 'castle', 'walls'] as const) { const value = params.get(key); if (value !== null) initial[key] = (value === 'true' ? true : value === 'false' ? false : value) as FeatureChoice; }

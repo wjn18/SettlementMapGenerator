@@ -9,6 +9,20 @@ export type DrawCommand =
 export interface MapTheme { paper: string; light: string; medium: string; dark: string; normalStroke: number; thickStroke: number }
 export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[] }
 export interface Viewport { centerX: number; centerY: number; zoom: number }
+/** CSS-pixel input and world-coordinate viewport; no rendering runtime types. */
+export interface MapRenderer {
+  render(scene: MapScene): void;
+  setViewport(viewport: Viewport): void;
+  resize(cssWidth: number, cssHeight: number, dpr: number): void;
+  pick(cssX: number, cssY: number): string | null;
+  dispose(): void;
+}
+export function pickScene(scene: MapScene | null, viewport: Viewport, width: number, height: number, x: number, y: number): string | null {
+  if (!scene || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > width || y > height) return null;
+  const p = { x: viewport.centerX + (x-width/2)/viewport.zoom, y: viewport.centerY + (y-height/2)/viewport.zoom };
+  for (let i=scene.hitRegions.length-1;i>=0;i--) if (pointInRing(scene.hitRegions[i].points,p)) return scene.hitRegions[i].entityId;
+  return null;
+}
 function theme(paper: string, light: string, medium: string, dark: string): Readonly<MapTheme> { return Object.freeze({ paper, light, medium, dark, normalStroke: 0.3, thickStroke: 1.8 }); }
 export const THEMES = Object.freeze({
   parchment: theme('#ccc5b8', '#99948a', '#67635c', '#1a1917'),

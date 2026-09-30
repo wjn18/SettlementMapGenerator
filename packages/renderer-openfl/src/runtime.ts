@@ -1,4 +1,15 @@
 import type Stage from 'openfl/lib/openfl/display/Stage';
+import { OpenGLRenderer } from './openfl.js';
+const shaderKeys=['__staticDefaultDisplayShader','__staticDefaultGraphicsShader','__staticMaskShader'] as const;
+const shaderCache=OpenGLRenderer as unknown as Record<string,unknown>;
+/** 9.5.2 shares shader objects across independent WebGL contexts. A shader
+ * compiled for a disposed context cannot render in a new one. Existing
+ * renderers keep their own shader references; new stages get fresh objects. */
+export function prepareShaderCache():void { for(const key of shaderKeys)shaderCache[key]=null; }
+export function ownShaderCache():()=>void {
+  const owned=shaderKeys.map(key=>shaderCache[key]);
+  return ()=>{shaderKeys.forEach((key,i)=>{if(shaderCache[key]===owned[i])shaderCache[key]=null;});};
+}
 type BoundCallback = EventListener & { _m: (...args: unknown[]) => unknown; _s: unknown };
 type Backend = { _c?: Record<string, BoundCallback>; [key: string]: unknown };
 function callback(backend: Backend, name: string): BoundCallback | undefined {

@@ -1,6 +1,6 @@
 {
   "name": "@settlement/playground",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@settlement/core": "0.4.0",
-    "@settlement/map-scene": "0.4.0",
-    "@settlement/renderer-openfl": "0.4.0"
+    "@settlement/map-scene": "0.5.0",
+    "@settlement/renderer-openfl": "0.5.0",
+    "@settlement/renderer-canvas": "0.5.0",
+    "@settlement/renderer-svg": "0.5.0"
   }
 }

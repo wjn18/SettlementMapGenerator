@@ -1,6 +1,6 @@
 # SettlementMapGenerator 重构方案
 
-日期：2026-09-30。状态：P0–P4 已完成。验收证据见 [P0](P0_ACCEPTANCE.zh-CN.md)、[P1](P1_ACCEPTANCE.zh-CN.md)、[P2](P2_ACCEPTANCE.zh-CN.md) 、[P3](P3_ACCEPTANCE.zh-CN.md) 和 [P4 验收记录](P4_ACCEPTANCE.zh-CN.md)。下一阶段为 P5 绘制器评估。
+日期：2026-09-30。状态：P0–P5 已完成。验收证据见 [P0](P0_ACCEPTANCE.zh-CN.md)、[P1](P1_ACCEPTANCE.zh-CN.md)、[P2](P2_ACCEPTANCE.zh-CN.md) 、[P3](P3_ACCEPTANCE.zh-CN.md) 和 [P4 验收记录](P4_ACCEPTANCE.zh-CN.md)。P5 已根据用户选择采用 Canvas 默认预览、SVG 矢量导出，见 [P5 验收](P5_ACCEPTANCE.zh-CN.md)。
 
 ## 1. 目标与技术决策
 
@@ -140,7 +140,7 @@ OpenFL 适配器负责 Stage / Sprite / Graphics、尺寸与 DPR、事件监听�
 | P2：纯算法库 | 已完成（2026-09-29） | core ESM/类型声明；43 项 Node 测试通过；同 Chrome 的 18 组旧版阶段精确一致；JSON 引用与交错状态隔离通过，跨引擎浮点边界已记录 |
 | P3：OpenFL 地图预览 | 已完成（2026-09-29） | 绘制指令/适配器/真实预览；参数与 URL、悬停、主题、视口及 JSON；6 项场景测试和 16 项浏览器测试通过，旧版与固定数据截图对照通过 |
 | P4：稳定性与库交付 | 已完成（2026-09-30） | Dijkstra 与算法版本 0.4.0；57 项 Node、24 项浏览器测试；620 组批量报告；Worker 取消/超时；DPR 1/2 各 40 次资源循环；独立压缩包消费、无 OpenFL 的 core 依赖图 |
-| P5：绘制器评估 | 后续才做 SVG、Canvas 最小实现 | 同一批 TownData / MapScene 对照图及性能表，用户看过实际效果后选择保留哪一种 |
+| P5：绘制器评估 | 已完成（2026-09-30） | Canvas/SVG 最小包、六组并排样本与细节镜头、54 组截图/性能记录；用户已选择 Canvas 默认预览、SVG 矢量导出，OpenFL 保留对照 |
 
 P1 的接入实验通过后再展开批量移植，避免完整重写后才发现 OpenFL npm 兼容问题。每个阶段单独提交，结构迁移与改变地图输出的算法修复分开。
 

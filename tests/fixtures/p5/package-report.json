@@ -1,0 +1,353 @@
+{
+  "packages": {
+    "@settlement/core": {
+      "path": "settlement-core-0.4.0.tgz",
+      "integrity": "sha512-Jvk7lkvYid9nq1BHOZGyFTrVAkw3I7GPmsJArd1GTwuILHXRO74byEOLk7X/3+biaRZ/E7YSj1JbiD2C2xW56g==",
+      "size": 36737,
+      "files": 31
+    },
+    "@settlement/map-scene": {
+      "path": "settlement-map-scene-0.5.0.tgz",
+      "integrity": "sha512-Ky8/FcL9z3fuskgntcqDFnHFsMYYlk/wCVjz1dnf6lTsDBM4xBtCaQj+huqL6Uq/2x0JP5+qLdK6nAI5k2lyEw==",
+      "size": 16910,
+      "files": 5
+    },
+    "@settlement/renderer-canvas": {
+      "path": "settlement-renderer-canvas-0.5.0.tgz",
+      "integrity": "sha512-idGHYjyKXYhTCHjeZSvjOO2dHY9spEqnTW1jHxV6Nq2ELz6wEy3ZLalL9DVp8IzhdBF6Gmo0Kn6FGj+eypYdNQ==",
+      "size": 15189,
+      "files": 5
+    },
+    "@settlement/renderer-svg": {
+      "path": "settlement-renderer-svg-0.5.0.tgz",
+      "integrity": "sha512-W1Mc5P85LcP1Q50SWcKFvjiALEmCMdAvoyuRH621Klm1COiIdiJV5e5pfvUYDGIa8dM/TNpvNWSV7/+HXp/ZZA==",
+      "size": 15423,
+      "files": 5
+    }
+  },
+  "node": {
+    "generatorVersion": "0.4.0",
+    "buildings": 622,
+    "workerMatches": true
+  },
+  "browserVersion": "153.0.8010.53",
+  "isolatedDependencyModules": 16,
+  "lifecycle": [
+    {
+      "kind": "canvas",
+      "dpr": 1,
+      "cycles": 40,
+      "baseline": {
+        "listeners": {
+          "beforeunload": 1,
+          "error": 1,
+          "unhandledrejection": 1,
+          "pagehide": 1,
+          "__playwright_global_listeners_check__": 1,
+          "mousemove": 1,
+          "pointerdown": 1,
+          "pointerup": 1,
+          "touchstart": 1,
+          "touchend": 1,
+          "touchcancel": 1,
+          "mousedown": 1,
+          "mouseup": 1,
+          "click": 1,
+          "auxclick": 1,
+          "dblclick": 1,
+          "contextmenu": 1
+        },
+        "frames": 0
+      },
+      "samples": [
+        {
+          "cycle": 5,
+          "usedSize": 3093164,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 372896,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 10,
+          "usedSize": 3104144,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 372848,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 20,
+          "usedSize": 3105028,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 374376,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 30,
+          "usedSize": 3111816,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 374120,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 40,
+          "usedSize": 3111816,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 374376,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        }
+      ]
+    },
+    {
+      "kind": "svg",
+      "dpr": 1,
+      "cycles": 40,
+      "baseline": {
+        "listeners": {
+          "beforeunload": 1,
+          "error": 1,
+          "unhandledrejection": 1,
+          "pagehide": 1,
+          "__playwright_global_listeners_check__": 1,
+          "mousemove": 1,
+          "pointerdown": 1,
+          "pointerup": 1,
+          "touchstart": 1,
+          "touchend": 1,
+          "touchcancel": 1,
+          "mousedown": 1,
+          "mouseup": 1,
+          "click": 1,
+          "auxclick": 1,
+          "dblclick": 1,
+          "contextmenu": 1
+        },
+        "frames": 0
+      },
+      "samples": [
+        {
+          "cycle": 5,
+          "usedSize": 3175116,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 407616,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 10,
+          "usedSize": 3199352,
+          "totalSize": 3592192,
+          "embedderHeapUsedSize": 436392,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 20,
+          "usedSize": 3199544,
+          "totalSize": 3592192,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 30,
+          "usedSize": 3203348,
+          "totalSize": 3592192,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 40,
+          "usedSize": 3206244,
+          "totalSize": 3592192,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        }
+      ]
+    },
+    {
+      "kind": "canvas",
+      "dpr": 2,
+      "cycles": 40,
+      "baseline": {
+        "listeners": {
+          "beforeunload": 1,
+          "error": 1,
+          "unhandledrejection": 1,
+          "pagehide": 1,
+          "__playwright_global_listeners_check__": 1,
+          "mousemove": 1,
+          "pointerdown": 1,
+          "pointerup": 1,
+          "touchstart": 1,
+          "touchend": 1,
+          "touchcancel": 1,
+          "mousedown": 1,
+          "mouseup": 1,
+          "click": 1,
+          "auxclick": 1,
+          "dblclick": 1,
+          "contextmenu": 1
+        },
+        "frames": 0
+      },
+      "samples": [
+        {
+          "cycle": 5,
+          "usedSize": 3093164,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 371752,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 10,
+          "usedSize": 3104144,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 370680,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 20,
+          "usedSize": 3104144,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 370616,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 30,
+          "usedSize": 3111184,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 370712,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 40,
+          "usedSize": 3111852,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 370712,
+          "backingStorageSize": 471845,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        }
+      ]
+    },
+    {
+      "kind": "svg",
+      "dpr": 2,
+      "cycles": 40,
+      "baseline": {
+        "listeners": {
+          "beforeunload": 1,
+          "error": 1,
+          "unhandledrejection": 1,
+          "pagehide": 1,
+          "__playwright_global_listeners_check__": 1,
+          "mousemove": 1,
+          "pointerdown": 1,
+          "pointerup": 1,
+          "touchstart": 1,
+          "touchend": 1,
+          "touchcancel": 1,
+          "mousedown": 1,
+          "mouseup": 1,
+          "click": 1,
+          "auxclick": 1,
+          "dblclick": 1,
+          "contextmenu": 1
+        },
+        "frames": 0
+      },
+      "samples": [
+        {
+          "cycle": 5,
+          "usedSize": 3175116,
+          "totalSize": 4116480,
+          "embedderHeapUsedSize": 407616,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 10,
+          "usedSize": 3199352,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 436392,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 20,
+          "usedSize": 3199544,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 30,
+          "usedSize": 3203348,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        },
+        {
+          "cycle": 40,
+          "usedSize": 3206244,
+          "totalSize": 3854336,
+          "embedderHeapUsedSize": 437080,
+          "backingStorageSize": 471961,
+          "documents": 1,
+          "nodes": 22,
+          "jsEventListeners": 32
+        }
+      ]
+    }
+  ]
+}

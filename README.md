@@ -2,9 +2,9 @@
 
 面向多个项目复用的城镇地图生成器，首个演示目标为 Web。
 
-采用 **TypeScript 算法库 + 独立绘制指令 + OpenFL 绘制适配层**。保留原项目的地图风格；后续可用同一份地图数据比较原生 SVG、Canvas。
+采用 **TypeScript 算法库 + 独立绘制指令 + Canvas 默认预览 / SVG 矢量导出**。保留原项目的地图风格，以及 OpenFL 适配层供迁移对照。
 
-当前状态：**P0–P4 已完成。算法与三个包已升级至 0.4.0，完成最短路径、批量稳定性、资源释放及独立包消费验证；地图预览支持可取消的后台生成。**
+当前状态：**P0–P5 已完成；已选定 Canvas 默认预览、SVG 矢量导出。** core 算法保持 0.4.0，绘制层升级 0.5.0；预览提供独立 PNG / SVG 导出按钮，支持切换 OpenFL / Canvas / SVG，以及六组地图的并排细节比较。
 
 - [重构方案](docs/REFACTOR_PLAN.zh-CN.md)：模块边界、迁移阶段、验收标准与后续绘制方案对比。
 - [接口草案](docs/API_DRAFT.zh-CN.md)：生成参数、地图数据、绘制接口与错误处理。
@@ -16,6 +16,8 @@
 - [P3 验收记录](docs/P3_ACCEPTANCE.zh-CN.md)：真实地图预览、6 项场景测试、16 项浏览器测试与旧版截图对照。
 - [P4 验收记录](docs/P4_ACCEPTANCE.zh-CN.md)：620 组批量输入、独立 npm 压缩包消费、Worker 与资源释放。
 - [独立 Node / 浏览器示例](examples/README.md)：本地压缩包安装与调用。
+- [P5 验收与性能对照](docs/P5_ACCEPTANCE.zh-CN.md)：54 组截图/测量、依赖体积与资源比较。
+- [打开并排比较](http://127.0.0.1:5174/compare.html)：六个固定样本、8× 细节镜头及差异着色。
 - [算法包使用说明](packages/core/README.md)：生成、分阶段调用、数据校验及复现边界。
 - [基线数据说明](tests/fixtures/p1/README.md)：阶段 JSON、截图、哈希和更新规则。
 
