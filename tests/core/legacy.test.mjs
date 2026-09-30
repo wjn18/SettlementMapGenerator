@@ -1,5 +1,7 @@
 import { installLegacyPaths } from './legacy-path.mjs';
+import { installLegacyCastles } from './legacy-castle.mjs';
 installLegacyPaths(); // Archived P2 parity only; public generation uses P4 Dijkstra.
+installLegacyCastles(); // P1 fixtures predate unified castle footprints.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';

@@ -3,6 +3,7 @@ import { GenerationContext, minimum } from './context.js';
 import { Point, Polygon, distanceToLine, interpolate } from './geometry.js';
 import { bisect, radial, ring } from './cutter.js';
 import { CurtainWall } from './model.js';
+import { createCastleFootprint } from './castle.js';
 import type { Model, Patch } from './model.js';
 
 type CommonParameters = [minSquare: number, gridChaos: number, sizeChaos: number, emptyProbability: number];
@@ -118,7 +119,10 @@ export const wardRegistry: Readonly<Record<WardType, WardStrategy>> = Object.fre
       const result = ring(w.getCityBlock(), 2 + c.random.float() * 4); c.geometry(result.length); return result;
     },
   },
-  Castle: { geometry: w => { const p = w.patch.shape.shrinkEq(4); return createOrthoBuilding(w.model.context, p, Math.sqrt(p.square) * 4, 0.6); } },
+  Castle: { geometry: w => {
+    const p = w.patch.shape.shrinkEq(4), context = w.model.context;
+    return [createCastleFootprint(context, p, () => createOrthoBuilding(context, p, Math.sqrt(p.square) * 4, 0.6))];
+  } },
   Market: {
     rate: (m, p) => m.inner.some(n => n.ward?.type === 'Market' && n.shape.borders(p.shape)) ? Infinity : m.plaza ? p.shape.square / m.plaza.shape.square : p.shape.distance(m.center),
     geometry: w => {

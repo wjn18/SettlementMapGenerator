@@ -1,6 +1,6 @@
 # @settlement/core
 
-纯 TypeScript 城镇生成内核。ESM + 类型声明，零运行时依赖，不访问 DOM、OpenFL、系统时间或网络。基于 watabou/TownGeneratorOS 移植，GPL-3.0-only。当前包版本 `0.4.0`、算法版本 `0.4.0`、数据版本 `1`；尚未发布到 npm。
+纯 TypeScript 城镇生成内核。ESM + 类型声明，零运行时依赖，不访问 DOM、OpenFL、系统时间或网络。基于 watabou/TownGeneratorOS 移植，GPL-3.0-only。当前包版本 `0.4.0`、算法版本 `0.7.0`、数据版本 `1`；尚未发布到 npm。
 
 在仓库根目录执行 `npm ci`、`npm run build:core` 后，工作区中可直接调用：
 
@@ -17,7 +17,9 @@ console.log(restored.districts.length, restored.buildings.length);
 
 `seed` 必填，整数 `1..2147483646`；`size` 必填，整数 `6..40`。`plaza`、`castle`、`walls` 为布尔值或默认的 `"auto"`。始终先按广场、城堡、城墙的顺序消耗三次随机数，再应用显式开关。`maxAttempts` 默认 20，允许整数 `1..100`。未知参数或范围外参数返回 `INVALID_OPTIONS`，不自动修正。
 
-可选 `river: true` 启用沿河城市，`coast: 'auto' | 'east' | 'south' | 'west' | 'north'` 启用海岸，两者组合生成河口。`coast: false` 或省略关闭海岸。沿海默认生成港区与码头，`harbor: false` 可关闭；内陆时该选项不产生码头。水域启用时使用地形算法 `TERRAIN_GENERATOR_VERSION = '0.6.0'`：先规划海岸和变宽河流、预留干燥的城堡/广场，再裁出陆地街区，在共享边界上构建街道、滨水道路和连接两岸的桥梁，最后细分建筑。码头从港区岸边道路伸向海面，避开河口。关闭水域继续使用 `GENERATOR_VERSION = '0.4.0'`，无水域的既有结果保持不变。当前支持单条河流和一侧海岸，不包含支流、岛屿、湖泊或水文模拟。
+可选 `river: true` 启用沿河城市，`coast: 'auto' | 'east' | 'south' | 'west' | 'north'` 启用海岸，两者组合生成河口。`coast: false` 或省略关闭海岸。沿海默认生成港区与码头，`harbor: false` 可关闭；内陆时该选项不产生码头。水域启用时使用地形算法 `TERRAIN_GENERATOR_VERSION = '0.7.0'`：先规划海岸和变宽河流、预留干燥的城堡/广场，再裁出陆地街区，在共享边界上构建街道、滨水道路和连接两岸的桥梁，最后细分建筑。码头从港区岸边道路伸向海面，避开河口。关闭水域使用 `GENERATOR_VERSION = '0.7.0'`。当前支持单条河流和一侧海岸，不包含支流、岛屿、湖泊或水文模拟。
+
+城堡在算法 0.7.0 中输出为一栋建筑：先合并细分块、删除内部接缝和共线节点，再筛选轮廓。仅接受单个无孔洞、无自交的连续轮廓；最多 12 个角，紧凑度至少 0.55，最小包围矩形长宽比不超过 2.5，占矩形面积至少 60%，占城堡可建地块至少 30%，拒绝小于 40° 的尖角和过短边。最多局部重试 64 次，仍不合格时进入受 `maxAttempts` 限制的整图重试。额外候选不消耗后续地块的随机序列。JSON、预览及各绘制器共用同一轮廓；旧 JSON 保留原几何，需要重新生成才能采用新城堡。
 
 `TownData.river` 保存 `centerline`、参考 `width`、`bankWidth`、`bridges` 和实际水面多边形 `surface`（旧地图可以省略 surface）。`TownData.terrain.coast` 保存最终海岸方向、岸线和海面多边形；`waterfronts` 引用沿岸道路；`docks` 保存港区 ID、连接道路 ID、路径和宽度。所有几何使用世界坐标，不泄露内部 Point 对象。道路通常宽 2、沿岸道路宽 2.6、桥梁道路宽 3；桥面宽 3.5。新增 `Harbor` 街区类型。数据格式仍为 `1`，新增字段是可选的，新版可无损导入旧地图；旧版严格校验器不支持新增字段。JSON 保存实际几何，无须重生成。`generateTownSteps` 在道路/建筑之前产出 `terrain` 阶段。河流生成算法已变化，要保留旧版河流布局请导入原始 JSON。
 

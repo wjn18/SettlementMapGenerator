@@ -14,7 +14,7 @@ interface Plan {
   local(p: Point2): Point; world(p: Point2): Point;
 }
 interface ShoreEdge { path: Polygon; patch: Patch; kind: 'coast' | 'river' }
-export const TERRAIN_GENERATOR_VERSION = '0.6.0';
+export const TERRAIN_GENERATOR_VERSION = '0.7.0';
 const wet = (p: Point2, plan: Plan): boolean => plan.cuts.some(ring => inRing(ring, p));
 const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => {
   if (shape.some(p => inRing(cut, p)) || cut.some(p => inRing(shape, p))) return true;
@@ -102,7 +102,9 @@ function clipDistricts(model: Model, plan: Plan): void {
     }));
   }
   model.patches = model.patches.flatMap(p => replacements.get(p)!);
-  model.inner = [...inner].flatMap(p => replacements.get(p)!);
+  // buildWalls can prune distant patches; do not reintroduce missing districts
+  // when a later attempt chooses a different castle site.
+  model.inner = [...inner].flatMap(p => replacements.get(p) ?? []);
   const surviving = new Set(model.patches.flatMap(p => [...p.shape]));
   model.gates = model.gates.filter(p => surviving.has(p) && !wet(p, plan));
   model.border!.gates.splice(0, model.border!.gates.length, ...model.border!.gates.filter(p => model.gates.includes(p)));

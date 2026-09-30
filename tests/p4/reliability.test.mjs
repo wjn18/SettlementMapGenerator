@@ -20,7 +20,7 @@ test('farm overflow regressions fail explicitly at one attempt and recover with 
     assert.equal(failed.ok,false);assert.equal(failed.error.code,'GENERATION_FAILED');
     assert.equal(failed.error.stage,'export');assert.match(failed.error.message,/outside its district/);
     const result=generateTown(options);assert.equal(result.ok,true);assert(result.town.resolved.attempts>1);
-    assert.equal(result.town.generatorVersion,'0.4.0');assert.equal(GENERATOR_VERSION,'0.4.0');
+    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.7.0');
     const vertices=new Map(result.town.vertices.map(v=>[v.id,v]));
     for(const b of result.town.buildings) {
       const district=result.town.districts.find(d=>d.id===b.districtId);
