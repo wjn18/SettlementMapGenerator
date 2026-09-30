@@ -1,17 +1,44 @@
-import { pickScene, layoutMapLabels, labelFont, LABEL_FONT } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, LABEL_FONT, layoutCartography } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface SVGRenderer extends MapRenderer { exportSVG(): string }
 const namespace='http://www.w3.org/2000/svg';
 export function createSVGRenderer(container: HTMLElement): SVGRenderer {
   const svg=document.createElementNS(namespace,'svg'),background=document.createElementNS(namespace,'rect'),group=document.createElementNS(namespace,'g'),labelGroup=document.createElementNS(namespace,'g');
   const measure = document.createElement('canvas').getContext('2d')!;
+  const cartographyGroup = document.createElementNS(namespace, 'g');
+  cartographyGroup.setAttribute('data-cartography', ''); cartographyGroup.style.pointerEvents = 'none';
   labelGroup.setAttribute('data-map-labels', ''); labelGroup.style.pointerEvents = 'none';
-  svg.style.display='block';svg.append(background,group,labelGroup);container.append(svg);
+  svg.style.display='block';svg.append(background,group,cartographyGroup,labelGroup);container.append(svg);
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),disposed=false;
   let scene:MapScene|null=null,viewport:Viewport={centerX:0,centerY:0,zoom:1};
   const alive=()=>{if(disposed)throw new Error('Renderer has been disposed');};
   function drawLabels(): void {
-    labelGroup.replaceChildren(); if (!scene) return;
+    labelGroup.replaceChildren(); cartographyGroup.replaceChildren(); if (!scene) return;
+    for (const layer of layoutCartography(scene, viewport, width, height)) {
+      const g = document.createElementNS(namespace, 'g'); g.setAttribute('data-cartography-layer', layer.kind);
+      if (layer.stepMeters !== undefined) g.setAttribute('data-step-meters', String(layer.stepMeters));
+      if (layer.distanceMeters !== undefined) g.setAttribute('data-distance-meters', String(layer.distanceMeters));
+      for (const command of layer.commands) {
+        const node = document.createElementNS(namespace, command.kind === 'text' ? 'text' : command.kind === 'circle' ? 'circle' : 'path');
+        if (command.opacity !== undefined) node.setAttribute('opacity', String(command.opacity));
+        if (command.kind === 'text') {
+          node.textContent = command.text; node.setAttribute('x', String(command.position.x)); node.setAttribute('y', String(command.position.y));
+          node.setAttribute('font-family', LABEL_FONT); node.setAttribute('font-size', String(command.fontSize));
+          node.setAttribute('text-anchor', command.align === 'left' ? 'start' : command.align === 'right' ? 'end' : 'middle');
+          node.setAttribute('fill', command.fill);
+        } else {
+          if (command.kind === 'circle') { node.setAttribute('cx', String(command.center.x)); node.setAttribute('cy', String(command.center.y)); node.setAttribute('r', String(command.radius)); }
+          else node.setAttribute('d', command.points.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ') + (command.kind === 'polygon' ? ' Z' : ''));
+          node.setAttribute('fill', 'fill' in command && command.fill ? command.fill : 'none');
+          if (command.stroke) {
+            const s = command.stroke; node.setAttribute('stroke', s.color); node.setAttribute('stroke-width', String(s.width));
+            node.setAttribute('stroke-linecap', s.cap); node.setAttribute('stroke-linejoin', s.join); node.setAttribute('stroke-miterlimit', String(s.miterLimit));
+          }
+        }
+        g.append(node);
+      }
+      cartographyGroup.append(g);
+    }
     for (const label of layoutMapLabels(scene, viewport, width, height, (text, size, kind) => { measure.font = labelFont(size, kind); return measure.measureText(text).width; })) {
       const g = document.createElementNS(namespace, 'g'), title = document.createElementNS(namespace, 'title');
       g.setAttribute('data-label-id', label.id); g.setAttribute('aria-label', label.text); title.textContent = label.text; g.append(title);

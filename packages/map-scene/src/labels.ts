@@ -2,6 +2,7 @@ import { getTownAtlas, distanceToPath } from '@settlement/core';
 import type { TownData, Point2, Bounds } from '@settlement/core';
 import type { MapTheme } from './themes.js';
 import type { MapScene, Viewport } from './index.js';
+import { layoutCartography } from './cartography.js';
 
 export interface LabelCandidate { center: Point2; angle: number; width: number; bend: number }
 export interface MapLabel {
@@ -62,6 +63,7 @@ export function buildMapLabels(town: TownData, theme: MapTheme): MapLabel[] {
 export function layoutMapLabels(scene: MapScene, viewport: Viewport, width: number, height: number, measure: (text: string, size: number, kind: MapLabel['kind']) => number): PlacedLabel[] {
   if (!scene.labels?.length) return [];
   const result: PlacedLabel[] = [], rings = new Map(scene.hitRegions.map(r => [r.entityId, r.points]));
+  const reserved = layoutCartography(scene, viewport, width, height).flatMap(layer => layer.bounds ? [layer.bounds] : []);
   const screen = (p: Point2): Point2 => ({ x: width / 2 + (p.x - viewport.centerX) * viewport.zoom, y: height / 2 + (p.y - viewport.centerY) * viewport.zoom });
   const world = (p: Point2): Point2 => ({ x: viewport.centerX + (p.x - width / 2) / viewport.zoom, y: viewport.centerY + (p.y - height / 2) / viewport.zoom });
   const intersects = (a: Bounds, b: Bounds) => a.minX < b.maxX + 3 && a.maxX > b.minX - 3 && a.minY < b.maxY + 3 && a.maxY > b.minY - 3;
@@ -110,7 +112,7 @@ export function layoutMapLabels(scene: MapScene, viewport: Viewport, width: numb
           boxes.push([[-half, -size * 0.8 - haloWidth], [half, -size * 0.8 - haloWidth], [half, size * 0.2 + haloWidth], [-half, size * 0.2 + haloWidth]].map(([dx, dy]) => ({ x: x + dx * c - dy * s, y: y + dx * s + dy * c })));
         }
         const corners = boxes.flat(), bounds = { minX: Math.min(...corners.map(p => p.x)), maxX: Math.max(...corners.map(p => p.x)), minY: Math.min(...corners.map(p => p.y)), maxY: Math.max(...corners.map(p => p.y)) };
-        if (bounds.minX < 8 || bounds.maxX > width - 8 || bounds.minY < 8 || bounds.maxY > height - 8 || result.some(other => intersects(bounds, other.bounds))) continue;
+        if (bounds.minX < 8 || bounds.maxX > width - 8 || bounds.minY < 8 || bounds.maxY > height - 8 || result.some(other => intersects(bounds, other.bounds)) || reserved.some(other => intersects(bounds, other))) continue;
         if (label.kind === 'region') {
           const ownRings = label.districtIds.map(id => rings.get(id)!);
           // Keep the full lettering on its own land, away from water and bridges.

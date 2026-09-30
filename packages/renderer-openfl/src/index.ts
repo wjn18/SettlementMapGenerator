@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT } from '@settlement/map-scene';
 import type { MapScene, Viewport, DrawCommand, MapRenderer } from '@settlement/map-scene';
 export type { MapRenderer } from '@settlement/map-scene';
 import type Graphics from 'openfl/lib/openfl/display/Graphics';
@@ -33,11 +33,36 @@ export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
     g.endFill();
   }
   function paint(): void { sprite.graphics.clear(); if (scene) for (const command of scene.commands) draw(sprite.graphics, command); }
+  function paintCartography(ctx: CanvasRenderingContext2D): void {
+    if (!scene) return;
+    for (const layer of layoutCartography(scene, viewport, width, height)) for (const command of layer.commands) {
+      ctx.save(); ctx.globalAlpha = command.opacity ?? 1;
+      if (command.kind === 'text') {
+        ctx.font = `normal ${command.fontSize}px ${LABEL_FONT}`; ctx.textAlign = command.align; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = command.fill; ctx.fillText(command.text, command.position.x, command.position.y);
+      } else {
+        ctx.beginPath();
+        if (command.kind === 'circle') ctx.arc(command.center.x, command.center.y, command.radius, 0, Math.PI * 2);
+        else if (command.points.length) {
+          ctx.moveTo(command.points[0].x, command.points[0].y);
+          for (const p of command.points.slice(1)) ctx.lineTo(p.x, p.y);
+          if (command.kind === 'polygon') ctx.closePath();
+        }
+        if ('fill' in command && command.fill) { ctx.fillStyle = command.fill; ctx.fill(); }
+        if (command.stroke) {
+          const s = command.stroke; ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.lineCap = s.cap;
+          ctx.lineJoin = s.join; ctx.miterLimit = s.miterLimit; ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
   function paintLabels(): void {
     labelBitmap.bitmapData?.dispose(); labelBitmap.bitmapData = null!;
     labelCanvas.width = Math.max(1, Math.round(width * labelDpr)); labelCanvas.height = Math.max(1, Math.round(height * labelDpr));
-    const ctx = labelContext; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,labelCanvas.width,labelCanvas.height); if (!scene?.labels?.length) return;
+    const ctx = labelContext; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,labelCanvas.width,labelCanvas.height); if (!scene || (!scene.labels?.length && !scene.cartography)) return;
     ctx.setTransform(labelDpr,0,0,labelDpr,0,0); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+    paintCartography(ctx);
     for (const label of layoutMapLabels(scene, viewport, width, height, (text,size,kind) => { ctx.font = labelFont(size,kind); return ctx.measureText(text).width; })) {
       ctx.font = labelFont(label.fontSize,label.kind); ctx.fillStyle = label.fill; ctx.strokeStyle = label.halo; ctx.lineWidth = label.haloWidth * 2;
       for (const outline of [true,false]) for (const glyph of label.glyphs) { ctx.save(); ctx.translate(glyph.x,glyph.y); ctx.rotate(glyph.angle); if (outline) ctx.strokeText(glyph.text,0,0); else ctx.fillText(glyph.text,0,0); ctx.restore(); }

@@ -5,6 +5,10 @@ import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoof
 import type { MapTheme } from './themes.js';
 import { buildMapLabels } from './labels.js';
 import type { MapLabel } from './labels.js';
+import { createCartography } from './cartography.js';
+import type { CartographyOptions, MapCartography } from './cartography.js';
+export { layoutCartography, formatMapDistance } from './cartography.js';
+export type { CartographyOptions, MapCartography, CartographyLayer, ScreenCommand } from './cartography.js';
 export { layoutMapLabels, labelFont, LABEL_FONT } from './labels.js';
 export type { MapLabel, PlacedLabel, LabelGlyph } from './labels.js';
 export { THEMES, THEME_LABELS, themeFromCityPalette, DISTRICT_STYLES, districtColor } from './themes.js';
@@ -14,7 +18,7 @@ export type DrawCommand =
   | { kind: 'polygon'; points: Point2[]; fill?: string; stroke?: Stroke }
   | { kind: 'polyline'; points: Point2[]; stroke: Stroke }
   | { kind: 'circle'; center: Point2; radius: number; fill?: string; stroke?: Stroke };
-export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[]; river?: River; terrain?: Terrain; labels?: MapLabel[] }
+export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[]; river?: River; terrain?: Terrain; labels?: MapLabel[]; cartography?: MapCartography }
 export interface Viewport { centerX: number; centerY: number; zoom: number }
 /** CSS-pixel input and world-coordinate viewport; no rendering runtime types. */
 export interface MapRenderer {
@@ -37,7 +41,7 @@ export function pickScene(scene: MapScene | null, viewport: Viewport, width: num
   for (let i=scene.hitRegions.length-1;i>=0;i--) if (pointInRing(scene.hitRegions[i].points,p)) return scene.hitRegions[i].entityId;
   return null;
 }
-export interface SceneOptions { districtColors?: boolean; labels?: boolean }
+export interface SceneOptions { districtColors?: boolean; labels?: boolean; cartography?: CartographyOptions }
 export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchment, options: SceneOptions = {}): MapScene {
   validateTown(town);
   validateTheme(palette);
@@ -129,7 +133,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
   }
   const river = town.river ? { ...town.river, ...(town.river.surface ? { surface: town.river.surface.map(p => ({ ...p })) } : {}), centerline: town.river.centerline.map(p => ({ ...p })), bridges: town.river.bridges.map(b => ({ ...b, points: b.points.map(p => ({ ...p })) })) } : undefined;
   const terrain = town.terrain ? { ...town.terrain, ...(town.terrain.coast ? { coast: { ...town.terrain.coast, shoreline: town.terrain.coast.shoreline.map(p => ({ ...p })), water: town.terrain.coast.water.map(p => ({ ...p })) } } : {}), waterfronts: town.terrain.waterfronts.map(w => ({ ...w })), docks: town.terrain.docks.map(d => ({ ...d, points: d.points.map(p => ({ ...p })) })) } : undefined;
-  return { bounds: { ...town.bounds }, background: palette.paper, commands, hitRegions: town.districts.map(d => ({ entityId: d.id, points: points(d.boundary) })), ...(river ? { river } : {}), ...(terrain ? { terrain } : {}), ...(options.labels ? { labels: buildMapLabels(town, palette) } : {}) };
+  return { bounds: { ...town.bounds }, background: palette.paper, commands, hitRegions: town.districts.map(d => ({ entityId: d.id, points: points(d.boundary) })), ...(river ? { river } : {}), ...(terrain ? { terrain } : {}), ...(options.labels ? { labels: buildMapLabels(town, palette) } : {}), ...(options.cartography ? { cartography: createCartography(palette, options.cartography) } : {}) };
 }
 export function pointInRing(points: readonly Point2[], p: Point2): boolean {
   let inside = false;

@@ -49,7 +49,8 @@ test('six city palettes switch without regeneration, survive reload, and export 
     }
   }
   await page.locator('#theme').selectOption('fairytale');
-  await expect(page.locator('.compass')).toHaveCSS('color', 'rgb(255, 255, 229)');
+  await page.locator('#renderer').selectOption('svg');
+  await expect(page.locator('#map [data-cartography-layer="compass"] text')).toHaveAttribute('fill', '#ffffe5');
   await page.reload(); await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#theme')).toHaveValue('fairytale');
   expect(await page.evaluate(() => (window as any).__playground.scene.background)).toBe(backgrounds.fairytale);

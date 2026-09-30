@@ -20,9 +20,12 @@
   </aside>
   <main>
     <div class="topbar"><div><span class="eyebrow">TOWN ATLAS</span><h2 id="map-title">城镇图册 <span>№ 12345</span></h2></div><div class="map-actions"><label class="names-toggle"><input id="show-names" type="checkbox" checked>地名</label><button id="edit-names" type="button" aria-expanded="false" aria-controls="names-panel">编辑地名</button><label class="theme-label">图纸<select id="theme"><option value="parchment">旧羊皮纸</option><option value="blueprint">建筑蓝图</option><option value="ancient">古地图</option><option value="colour">田园彩绘</option><option value="ink">墨色</option><option value="monochrome">黑白</option></select></label></div></div>
+    <section class="cartography-tools" aria-label="地图辅助元素">
+      <div class="cartography-options"><label><input id="show-grid" type="checkbox" checked>网格</label><label class="grid-spacing">间距<select id="grid-size" aria-label="网格间距"><option value="auto">自动</option><option value="25">25 m</option><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option></select></label><label><input id="show-scale" type="checkbox" checked>比例尺</label><label><input id="show-compass" type="checkbox" checked>罗盘</label><output id="grid-readout"></output></div>
+      <div class="zoom-tools"><button id="zoom-out" aria-label="缩小">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="放大">+</button><button id="fit" aria-label="适应城镇">⌖</button></div>
+    </section>
     <div class="map-shell">
       <div id="map" tabindex="0" role="img" aria-label="城镇地图。滚轮缩放，拖动平移，方向键移动，按 0 复位。"></div>
-      <div class="compass" aria-hidden="true"><span>N</span><svg width="28" height="42" viewBox="0 0 28 42"><path d="M14 2L25 36L14 29L3 36Z" fill="none" stroke="currentColor"/><path d="M14 2V29L3 36Z" fill="currentColor"/></svg></div>
       <div id="tooltip" role="tooltip" hidden></div>
       <section id="names-panel" class="names-panel" aria-label="城市与区域地名" hidden>
         <div class="names-heading"><strong>城市与区域</strong><button id="close-names" type="button" aria-label="关闭地名编辑">×</button></div>
@@ -31,12 +34,10 @@
         <p class="note">点击地图选择区域。改名保留城市布局，可随 JSON 保存。</p>
         <p id="name-error" role="alert" hidden></p>
       </section>
-      <div class="map-caption"><canvas id="atlas-title" aria-label="Settlement map"></canvas><span>滚轮缩放 · 拖动平移 · 悬停探索街区</span></div>
-      <div class="zoom-tools"><button id="zoom-out" aria-label="缩小">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="放大">+</button><button id="fit" aria-label="适应城镇">⌖</button></div>
       <div id="error" role="alert" hidden></div>
     </div>
     <section class="district-legend" aria-label="街区用途图例"><div class="district-legend-heading"><label class="district-toggle"><input id="district-colors" type="checkbox" checked>街区分色</label><span>同类街区同色 · 悬停查看用途</span></div><div id="district-keys" class="district-keys"></div></section>
-    <div class="bottom-bar"><span id="hover-label">将指针移入地图，查看街区用途</span><span>WATABOUTOWN / SETTLEMENT</span></div>
+    <div class="bottom-bar"><span id="hover-label">将指针移入地图，查看街区用途</span><div class="map-caption"><canvas id="atlas-title" aria-label="Settlement map"></canvas></div></div>
   </main>
   <script type="module" src="/src/main.ts"></script>
 </body></html>

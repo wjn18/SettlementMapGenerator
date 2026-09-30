@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface CanvasRenderer extends MapRenderer { exportPNG(): Promise<Blob> }
 export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
@@ -8,6 +8,30 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),dpr=1,disposed=false;
   let scene: MapScene|null=null,viewport: Viewport={centerX:0,centerY:0,zoom:1};
   const alive=()=>{if(disposed)throw new Error('Renderer has been disposed');};
+  function paintCartography(ctx: CanvasRenderingContext2D): void {
+    if (!scene) return;
+    for (const layer of layoutCartography(scene, viewport, width, height)) for (const command of layer.commands) {
+      ctx.save(); ctx.globalAlpha = command.opacity ?? 1;
+      if (command.kind === 'text') {
+        ctx.font = `normal ${command.fontSize}px ${LABEL_FONT}`; ctx.textAlign = command.align; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = command.fill; ctx.fillText(command.text, command.position.x, command.position.y);
+      } else {
+        ctx.beginPath();
+        if (command.kind === 'circle') ctx.arc(command.center.x, command.center.y, command.radius, 0, Math.PI * 2);
+        else if (command.points.length) {
+          ctx.moveTo(command.points[0].x, command.points[0].y);
+          for (const p of command.points.slice(1)) ctx.lineTo(p.x, p.y);
+          if (command.kind === 'polygon') ctx.closePath();
+        }
+        if ('fill' in command && command.fill) { ctx.fillStyle = command.fill; ctx.fill(); }
+        if (command.stroke) {
+          const s = command.stroke; ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.lineCap = s.cap;
+          ctx.lineJoin = s.join; ctx.miterLimit = s.miterLimit; ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
   function paint(): void {
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
     if(!scene)return;
@@ -27,6 +51,7 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
       if(stroke){ctx.strokeStyle=stroke.color;ctx.lineWidth=stroke.width/(stroke.units==='screen'?viewport.zoom:1);ctx.lineCap=stroke.cap;ctx.lineJoin=stroke.join;ctx.miterLimit=stroke.miterLimit;ctx.stroke();}
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintCartography(ctx);
     const labels = layoutMapLabels(scene, viewport, width, height, (text, size, kind) => { ctx.font = labelFont(size, kind); return ctx.measureText(text).width; });
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
     for (const label of labels) {

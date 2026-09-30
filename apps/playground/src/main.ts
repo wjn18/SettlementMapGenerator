@@ -1,8 +1,8 @@
 import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTown, normalizeMapName } from '@settlement/core';
 import { GenerationTask } from './generation-task';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas } from '@settlement/core';
-import { buildMapScene, fitViewport, THEMES } from '@settlement/map-scene';
-import type { MapScene, Viewport } from '@settlement/map-scene';
+import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance } from '@settlement/map-scene';
+import type { MapScene, Viewport, SceneOptions } from '@settlement/map-scene';
 import { rendererFactories, isRendererKind, exportSceneImage, download } from './renderers';
 import type { RendererKind } from './renderers';
 import { bitmapTitle } from './bitmap-title';
@@ -10,6 +10,7 @@ import { populateThemes } from './theme-select';
 import { districtLabels as labels, renderDistrictLegend } from './district-legend';
 import './style.css';
 import './names.css';
+import './cartography.css';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const host = $('map'), form = $<HTMLFormElement>('generator'), error = $('error'), status = $('status');
@@ -19,6 +20,11 @@ const file = $<HTMLInputElement>('file'), tooltip = $('tooltip');
 const params = new URLSearchParams(location.search);
 const showNames = $<HTMLInputElement>('show-names'), namesPanel = $('names-panel'), regionSelect = $<HTMLSelectElement>('region-select');
 showNames.checked = params.get('labels') === 'true' || (params.get('labels') !== 'false' && params.get('capture') !== '1');
+const showGrid = $<HTMLInputElement>('show-grid'), showScale = $<HTMLInputElement>('show-scale'), showCompass = $<HTMLInputElement>('show-compass'), gridSize = $<HTMLSelectElement>('grid-size');
+for (const [key, input] of [['grid', showGrid], ['scale', showScale], ['compass', showCompass]] as const) input.checked = params.get(key) === 'true' || (params.get(key) !== 'false' && params.get('capture') !== '1');
+if (['auto', '25', '50', '100', '200'].includes(params.get('gridSize') ?? '')) gridSize.value = params.get('gridSize')!;
+gridSize.disabled = !showGrid.checked;
+function sceneOptions(): SceneOptions { return { districtColors: districtColors.checked, labels: showNames.checked, cartography: { grid: showGrid.checked, scale: showScale.checked, compass: showCompass.checked, gridSize: gridSize.value === 'auto' ? 'auto' : Number(gridSize.value) } }; }
 let atlas: TownAtlas | null = null, initialNames = true;
 let regionByDistrict = new Map<string, string>(), regionSummary = new Map<string, string>();
 const districtColors = $<HTMLInputElement>('district-colors');
@@ -59,6 +65,7 @@ function syncURL(): void {
   url.searchParams.set('harbor', String(town.request.harbor ?? true));
   url.searchParams.set('districts', String(districtColors.checked));
   url.searchParams.set('labels', String(showNames.checked));
+  url.searchParams.set('grid', String(showGrid.checked)); url.searchParams.set('scale', String(showScale.checked)); url.searchParams.set('compass', String(showCompass.checked)); url.searchParams.set('gridSize', gridSize.value);
   const automatic = createTownAtlas(town), names = getTownAtlas(town);
   if (names.cityName !== automatic.cityName) url.searchParams.set('cityName', names.cityName); else url.searchParams.delete('cityName');
   const overrides = names.regions.filter(r => r.name !== automatic.regions.find(a => a.id === r.id)?.name).map(r => [r.id, r.name]);
@@ -74,15 +81,22 @@ function cityBounds(): Bounds {
 function updateViewport(value: Viewport): void {
   autoFit = false;
   viewport = value; renderer.setViewport(viewport); $('zoom-label').textContent = `${Math.round(viewport.zoom / baseZoom * 100)}%`; tooltip.hidden = true;
+  updateGridReadout();
+}
+function updateGridReadout(): void {
+  const grid = scene && layoutCartography(scene, viewport, width, height).find(layer => layer.kind === 'grid');
+  const readout = $('grid-readout');
+  readout.textContent = grid?.stepMeters ? `每格 ${formatMapDistance(grid.stepMeters)}` : '';
+  readout.hidden = !grid?.stepMeters || (gridSize.value !== 'auto' && grid.stepMeters === Number(gridSize.value));
+  gridSize.title = grid?.stepMeters ? `实际间距：${formatMapDistance(grid.stepMeters)}` : '网格间距';
 }
 function fit(): void { const fitted = fitViewport(cityBounds(), width, height, Math.min(width, height) * 0.13); baseZoom = fitted.zoom; updateViewport(fitted); autoFit = true; }
 function drawTheme(): void {
   if (!town) return;
-  const nextScene = buildMapScene(town, palette(), { districtColors: districtColors.checked, labels: showNames.checked }); renderer.render(nextScene); scene = nextScene;
+  const nextScene = buildMapScene(town, palette(), sceneOptions()); renderer.render(nextScene); scene = nextScene; updateGridReadout();
   renderDistrictLegend($('district-keys'), town, palette(), districtColors.checked);
   const labelColor = palette().label ?? palette().dark;
   document.querySelector<HTMLElement>('.map-caption')!.style.color = labelColor;
-  document.querySelector<HTMLElement>('.compass')!.style.color = labelColor;
   void bitmapTitle($<HTMLCanvasElement>('atlas-title'), `SETTLEMENT / ${town.resolved.seed}`, labelColor).catch(() => { status.textContent = '地图已就绪，图名字体加载失败'; });
 }
 function setNamesPanel(open: boolean): void { namesPanel.hidden = !open; $('edit-names').setAttribute('aria-expanded', String(open)); }
@@ -119,6 +133,7 @@ function saveName(target: string, value: string): void {
 $('city-name-form').addEventListener('submit', event => { event.preventDefault(); saveName('city', $<HTMLInputElement>('city-name').value); });
 $('region-name-form').addEventListener('submit', event => { event.preventDefault(); saveName(regionSelect.value, $<HTMLInputElement>('region-name').value); });
 showNames.addEventListener('change', () => { drawTheme(); syncURL(); });
+for (const input of [showGrid, showScale, showCompass, gridSize]) input.addEventListener('change', () => { gridSize.disabled = !showGrid.checked; drawTheme(); syncURL(); });
 function present(next: TownData, source: 'generated' | 'imported'): void {
   let namesNotice = '';
   if (initialNames) {
@@ -137,7 +152,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
       } catch { namesNotice = ' · URL 地名无效，已使用自动地名'; }
     }
   }
-  const nextScene = buildMapScene(next, palette(), { districtColors: districtColors.checked, labels: showNames.checked });
+  const nextScene = buildMapScene(next, palette(), sceneOptions());
   renderer.render(nextScene); town = next; scene = nextScene; revision++; setFields(next.request);
   error.hidden = true; tooltip.hidden = true; $<HTMLButtonElement>('export').disabled = false;
   $<HTMLButtonElement>('export-image').disabled = false; $<HTMLButtonElement>('export-svg').disabled = false;

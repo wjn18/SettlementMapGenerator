@@ -61,7 +61,7 @@ test('regional labels, Unicode editing, URL/JSON persistence and three renderer 
   await expect(page.locator('#status')).toContainText('已导入');
   expect(await page.evaluate(() => window.__playground.town)).toEqual(edited);
   await page.locator('#renderer').selectOption('svg');
-  await page.locator('#show-names').uncheck(); await expect(page.locator('#map text')).toHaveCount(0);
+  await page.locator('#show-names').uncheck(); await expect(page.locator('#map [data-map-labels] text')).toHaveCount(0);
   expect(await page.evaluate(() => window.__playground.town.atlas)).toEqual(edited.atlas);
   await page.locator('#show-names').check(); await expect(page.locator('#map [data-label-id="city-name"]')).toBeVisible();
   await page.locator('#edit-names').click(); await page.locator('#city-name').fill('   '); await page.locator('#city-name-form button').click();

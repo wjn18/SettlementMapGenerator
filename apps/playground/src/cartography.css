@@ -1,0 +1,15 @@
+.cartography-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:-5px 0 12px;flex-wrap:wrap}
+.cartography-options{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.cartography-options label{display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap}
+.cartography-options input{width:auto;margin:0}
+.cartography-options select{width:76px;padding:5px 6px;font-size:11px}
+#grid-readout{font-size:10px;color:#738474;min-width:62px}
+.cartography-tools .zoom-tools{position:static;box-shadow:none;flex-shrink:0;margin-left:auto}
+.cartography-tools .zoom-tools button{font-size:17px;padding:2px 9px}
+.cartography-tools .zoom-tools #fit{font-size:20px}
+.bottom-bar{align-items:center;min-height:20px}
+.bottom-bar .map-caption{position:static;flex-shrink:0}
+.bottom-bar .map-caption canvas{max-width:128px;max-height:16px}
+body[data-capture="true"] .cartography-tools{display:none}
+@media(max-width:1100px){.cartography-options{gap:10px}}
+@media(max-width:580px){.cartography-tools{gap:8px}.cartography-options{gap:9px}.cartography-options select{width:67px}.bottom-bar .map-caption{display:none}}
