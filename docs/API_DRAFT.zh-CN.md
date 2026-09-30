@@ -1,6 +1,6 @@
 # API 与数据接口草案
 
-P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。P3 已实现下述绘制接口，见 [map-scene](../packages/map-scene/README.md) 与 [renderer-openfl](../packages/renderer-openfl/README.md)。算法版本仍为 `0.2.0-legacy`，尚未发布 npm 包。
+P2 已实现本文生成入口和 TownData 数据格式 `1`，实际导出类型见 `packages/core/src/types.ts`，用法与验证规则见 [core 使用说明](../packages/core/README.md)。P3 已实现下述绘制接口，见 [map-scene](../packages/map-scene/README.md) 与 [renderer-openfl](../packages/renderer-openfl/README.md)。P4 算法及包版本为 `0.4.0`，改用最短路径并检查生成建筑越界；数据格式仍为 `1`。已有地图请通过 JSON 保留，旧种子在新算法下不保证生成原图。独立消费见 [示例](../examples/README.md)，尚未发布 npm 包。
 
 ## 生成入口
 

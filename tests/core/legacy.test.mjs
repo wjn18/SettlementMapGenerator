@@ -1,3 +1,5 @@
+import { installLegacyPaths } from './legacy-path.mjs';
+installLegacyPaths(); // Archived P2 parity only; public generation uses P4 Dijkstra.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';

@@ -5,7 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { chromium } from '@playwright/test';
 
-test('TypeScript port: all 18 P1 fixtures match every stage exactly in the baseline browser', async () => {
+test('Archived FIFO harness: 18 P1 fixtures still match; P4 output validates independently', async () => {
   const root = new URL('../../', import.meta.url);
   const server = createServer((req, res) => {
     try {
@@ -28,6 +28,8 @@ test('TypeScript port: all 18 P1 fixtures match every stage exactly in the basel
         const { Model } = await import(`${base}/packages/core/dist/model.js`);
         const { generateTown, validateTown } = await import(`${base}/packages/core/dist/index.js`);
         const { snapshot } = await import(`${base}/tests/core/legacy-snapshot.mjs`);
+        const { installLegacyPaths } = await import(`${base}/tests/core/legacy-path.mjs`);
+        const restore = installLegacyPaths();
         const context = new GenerationContext(seed), r = context.random;
         const model = new Model(context, size, { plaza: r.bool(), castle: r.bool(), walls: r.bool() }), attempts = [];
         for (let i = 0; i < 20; i++) {
@@ -35,6 +37,7 @@ test('TypeScript port: all 18 P1 fixtures match every stage exactly in the basel
           try { for (const stage of model.build()) attempt.stages.push(snapshot(stage, model)); break; }
           catch (e) { if (!(e instanceof RetryableError)) throw e; attempt.error = e.message; }
         }
+        restore();
         const generated = generateTown({ seed, size });
         if (!generated.ok) throw new Error(JSON.stringify(generated.error));
         validateTown(generated.town);

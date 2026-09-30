@@ -20,6 +20,31 @@ export class Point {
   static distance(a: Point, b: Point): number { return a.subtract(b).length; }
 }
 export const cross = (x1: number, y1: number, x2: number, y2: number): number => x1 * y2 - y1 * x2;
+/** Boundary-inclusive containment for generated geometry, in world units. */
+export function containsCoordinate(ring: readonly Point[], p: Point): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[j], b = ring[i], dx = b.x - a.x, dy = b.y - a.y;
+    const length = Math.hypot(dx, dy), area = cross(p.x - a.x, p.y - a.y, dx, dy);
+    if (Math.abs(area) <= 1e-8 * length && p.x >= Math.min(a.x,b.x)-1e-8 && p.x <= Math.max(a.x,b.x)+1e-8 && p.y >= Math.min(a.y,b.y)-1e-8 && p.y <= Math.max(a.y,b.y)+1e-8) return true;
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < dx * (p.y-a.y) / dy + a.x) inside = !inside;
+  }
+  return inside;
+}
+export function containsPolygon(outer: readonly Point[], inner: readonly Point[]): boolean {
+  if (!inner.every(p => containsCoordinate(outer, p))) return false;
+  // Vertices alone cannot detect an edge crossing a concave notch.
+  const side = (a: Point, b: Point, p: Point) => cross(b.x-a.x,b.y-a.y,p.x-a.x,p.y-a.y);
+  for (let i=0;i<inner.length;i++) {
+    const a=inner[i],b=inner[(i+1)%inner.length];
+    if (!containsCoordinate(outer, interpolate(a,b))) return false;
+    for (let j=0;j<outer.length;j++) {
+      const c=outer[j],d=outer[(j+1)%outer.length];
+      if (side(a,b,c)*side(a,b,d)<-1e-16 && side(c,d,a)*side(c,d,b)<-1e-16) return false;
+    }
+  }
+  return true;
+}
 export function interpolate(a: Point, b: Point, ratio = 0.5): Point { return a.add(b.subtract(a).scale(ratio)); }
 export function intersect(x1: number, y1: number, dx1: number, dy1: number, x2: number, y2: number, dx2: number, dy2: number): Point | null {
   const d = dx1 * dy2 - dy1 * dx2;

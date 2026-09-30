@@ -30,7 +30,11 @@
     "legacy:build:instrumented": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-legacy.ps1 -Instrumented",
     "baseline:capture": "node scripts/capture-legacy.mjs",
     "baseline:verify": "node scripts/capture-legacy.mjs --verify",
-    "verify:fixtures": "node scripts/verify-fixtures.mjs"
+    "verify:fixtures": "node scripts/verify-fixtures.mjs",
+    "test:p4": "npm run build:packages && node --test tests/core/*.test.mjs tests/p3/scene.test.mjs tests/p4/*.test.mjs",
+    "test:p4:batch": "npm run build:packages && node scripts/check-p4-batch.mjs",
+    "test:p4:packages": "npm run build:packages && node scripts/check-p4-packages.mjs",
+    "test:p4:browser": "npm run build:packages && npm run build --workspace @settlement/playground && playwright test --config playwright.p4.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

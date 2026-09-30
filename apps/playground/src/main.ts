@@ -1,4 +1,5 @@
-import { generateTown, deserializeTown, serializeTown } from '@settlement/core';
+import { deserializeTown, serializeTown } from '@settlement/core';
+import { GenerationTask } from './generation-task';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds } from '@settlement/core';
 import { buildMapScene, fitViewport, THEMES } from '@settlement/map-scene';
 import type { MapScene, Viewport } from '@settlement/map-scene';
@@ -16,6 +17,8 @@ let renderer = createOpenFLRenderer(host), town: TownData | null = null, scene: 
 let viewport: Viewport = { centerX: 0, centerY: 0, zoom: 1 }, baseZoom = 1, generationCount = 0, revision = 0;
 let width = 1, height = 1;
 let autoFit = true;
+const generation = new GenerationTask();
+let generationRequest = 0;
 const labels: Record<string, string> = { Ward: '乡野', CraftsmenWard: '工匠街区', GateWard: '城门街区', MerchantWard: '商人街区', AdministrationWard: '行政区', PatriciateWard: '贵族街区', Slum: '平民街区', MilitaryWard: '军营', Cathedral: '教堂', Castle: '城堡', Market: '集市广场', Park: '公园', Farm: '农庄' };
 function palette() { return THEMES[theme.value as keyof typeof THEMES]; }
 function notifyError(message: string) { error.hidden = false; error.textContent = message; status.textContent = '操作未完成，请检查提示'; }
@@ -66,21 +69,28 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   fit(); syncURL(); drawTheme(); document.body.dataset.ready = 'true';
 }
 async function generate(value = options()): Promise<void> {
+  const request = ++generationRequest;
   const fields = $<HTMLFieldSetElement>('parameters'); fields.disabled = true; status.textContent = '正在绘制城镇…';
-  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  $('cancel').hidden = false;
   try {
-    generationCount++; const result = generateTown(value);
+    generationCount++; const result = await generation.run(value);
+    if (request !== generationRequest) return;
     if (!result.ok) { notifyError(`无法生成地图：${result.error.message}（${result.error.code}）`); return; }
     present(result.town, 'generated');
-  } catch (e) { notifyError(e instanceof Error ? e.message : String(e)); }
-  finally { fields.disabled = false; }
+  } catch (e) {
+    if (request !== generationRequest) return;
+    if (e instanceof DOMException && e.name === 'AbortError') status.textContent = '已取消生成';
+    else notifyError(e instanceof Error ? e.message : String(e));
+  } finally { if (request === generationRequest) { fields.disabled = false; $('cancel').hidden = true; } }
 }
+$('cancel').addEventListener('click', () => generation.cancel());
 form.addEventListener('submit', event => { event.preventDefault(); void generate(); });
 $('random').addEventListener('click', () => { const bytes = crypto.getRandomValues(new Uint32Array(1)); seed.value = String(bytes[0] % 2147483646 + 1); void generate(); });
 theme.addEventListener('change', () => { try { drawTheme(); syncURL(); } catch (e) { notifyError(String(e)); } });
 $('import').addEventListener('click', () => file.click());
 file.addEventListener('change', async () => {
   const selected = file.files?.[0]; if (!selected) return;
+  generation.cancel();
   try {
     if (selected.size > 64_000_000) throw new Error('地图文件超过 64 MB 上限');
     const loaded = deserializeTown(await selected.text()); present(loaded, 'imported');
@@ -122,12 +132,13 @@ host.addEventListener('keydown', event => {
 });
 function resize(): void { width = Math.max(1, host.clientWidth); height = Math.max(1, host.clientHeight); renderer.resize(width, height, Math.min(window.devicePixelRatio || 1, 8)); if (autoFit && town) fit(); else updateViewport(viewport); }
 const observer = new ResizeObserver(resize); observer.observe(host); window.addEventListener('resize', resize); resize();
-window.addEventListener('pagehide', () => { observer.disconnect(); window.removeEventListener('resize', resize); renderer.dispose(); }, { once: true });
+window.addEventListener('pagehide', () => { generation.cancel(); observer.disconnect(); window.removeEventListener('resize', resize); renderer.dispose(); }, { once: true });
 
 // Acceptance-only instrumentation: never enabled on a normal preview URL.
 if (params.get('test') === '1') Object.defineProperty(window, '__playground', { value: {
   get town() { return town; }, get scene() { return scene; }, get viewport() { return viewport; }, get generationCount() { return generationCount; }, get revision() { return revision; },
   load(value: string) { present(deserializeTown(value), 'imported'); }, setViewport: updateViewport,
+  generate, cancel: () => generation.cancel(),
   pick(x: number, y: number) { return renderer.pick(x, y); },
   resize(w: number, h: number, dpr: number) { width = w; height = h; renderer.resize(w, h, dpr); },
   remount() { renderer.dispose(); renderer.dispose(); renderer = createOpenFLRenderer(host); resize(); if (scene) renderer.render(scene); updateViewport(viewport); },

@@ -1,8 +1,9 @@
 import { RetryableError } from './context.js';
 import type { Point, Polygon } from './geometry.js';
+import { containsPolygon } from './geometry.js';
 import type { Model, CurtainWall } from './model.js';
 import type { TownData, NormalizedOptions, Vertex, Wall, Gate, Building, Feature, Road } from './types.js';
-export const GENERATOR_VERSION = '0.2.0-legacy';
+export const GENERATOR_VERSION = '0.4.0';
 export function exportTown(model: Model, request: NormalizedOptions, attempts: number): TownData {
   const vertices: Vertex[] = [], ids = new Map<Point, string>();
   const vertex = (p: Point): string => {
@@ -21,6 +22,7 @@ export function exportTown(model: Model, request: NormalizedOptions, attempts: n
   for (let i = 0; i < model.patches.length; i++) {
     const ward = model.patches[i].ward!;
     for (const shape of ward.geometry) {
+      if (!containsPolygon(model.patches[i].shape, shape)) throw new RetryableError('Generated geometry outside its district');
       const boundary = ring(shape), districtId = districts[i].id;
       if (ward.featureKind) features.push({ id: `f${features.length}`, districtId, kind: ward.featureKind, boundary });
       else buildings.push({ id: `b${buildings.length}`, districtId, boundary });

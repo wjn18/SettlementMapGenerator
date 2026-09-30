@@ -1,6 +1,6 @@
 # @settlement/map-scene
 
-无 DOM、无 OpenFL 的绘制指令包，版本 `0.3.0`，GPL-3.0-only。先运行根目录的 `npm run build:packages`。
+无 DOM、无 OpenFL 的绘制指令包，版本 `0.4.0`，GPL-3.0-only。先运行根目录的 `npm run build:packages`。
 
 ```ts
 import { buildMapScene, THEMES, fitViewport } from '@settlement/map-scene';
@@ -15,3 +15,5 @@ const viewport = fitViewport(scene.bounds, 800, 800, 32);
 `DrawCommand` 支持 polygon、polyline、circle；`Stroke` 显式保存颜色、宽度、world/screen 单位、端帽、连接和 miterLimit。`pointInRing(points, point)` 提供边界算内部的命中判断。`fitViewport(bounds, width, height, padding)` 返回 CSS 像素视口；DPR 属于绘制适配器。
 
 当前采用正面积、无洞多边形，不输出字体或 DOM 指令。预览界面的图名和中文提示独立于地图图形。来源：watabou/TownGeneratorOS 的 mapping/CityMap.hx、Brush.hx、Palette.hx。
+
+独立消费已通过 P4：从实际 `.tgz` 安装 core 与 map-scene；完整示例及三个包的安装顺序见仓库 `examples/README.md`。
