@@ -47,7 +47,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
   validateTheme(palette);
   // The road-first layout exports metre coordinates at four times its planning
   // scale. Keep outline and wall symbols consistent with its building sizes.
-  if (['0.8.0', '0.9.0', '0.10.0'].includes(town.generatorVersion)) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
+  if (['0.8.0', '0.9.0', '0.10.0', '0.11.0'].includes(town.generatorVersion)) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
   const zoning = options.districtColors === true;
   const detailedColors = zoning || [palette.roof, palette.tree, palette.water, palette.wall].some(color => color !== undefined);
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
@@ -61,7 +61,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     const civic = district.wardType === 'Castle' || district.wardType === 'Market';
     const fill = zoning && (district.withinCity || green)
       ? mixColor(districtColor(palette, district.wardType), palette.paper, green ? 0.3 : civic ? 0.5 : 0.76)
-      : green ? palette.green : ['0.9.0', '0.10.0'].includes(town.generatorVersion) && !district.withinWalls && !civic ? undefined : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
+      : green ? palette.green : ['0.9.0', '0.10.0', '0.11.0'].includes(town.generatorVersion) && !district.withinWalls && !civic ? undefined : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
     if (fill) commands.push({ kind: 'polygon', points: points(district.boundary), fill });
   }
   for (const road of town.roads) if (road.kind === 'external' || palette.road !== undefined || zoning) {
@@ -119,7 +119,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
       const before = boundary[(i + boundary.length - 1) % boundary.length], after = boundary[(i + 1) % boundary.length];
       let dx = after.x - before.x, dy = after.y - before.y; const length = Math.sqrt(dx * dx + dy * dy);
       if (length !== 0) { const s = palette.thickStroke * 1.5 / length; dx *= s; dy *= s; }
-      if (town.generatorVersion === '0.10.0' && wall.kind === 'city') {
+      if (['0.10.0', '0.11.0'].includes(town.generatorVersion) && wall.kind === 'city') {
         // The new topology leaves a real opening. Gatehouses flank that gap;
         // drawing the legacy solid bar here would cover the crossing road.
         let left = i, right = i, guard = 0;

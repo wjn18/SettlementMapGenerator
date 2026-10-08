@@ -89,7 +89,7 @@ for (const seed of [1, 42, 12345]) test(`walls enclose the older core and leave 
   const result = generateTown({ seed, size: 100, walls: true, castle: true, plaza: true });
   assert.equal(result.ok, true);
   const city = result.town.districts.filter(d => d.withinCity && d.wardType !== 'Castle');
-  assert.equal(city.length, 100);
+  assert.ok(city.length >= 100, 'base growth plus planned wall infill');
   assert.ok(city.some(d => d.withinWalls)); assert.ok(city.some(d => !d.withinWalls));
   const wall = result.town.walls.find(w => w.kind === 'city'), points = new Map(result.town.vertices.map(v => [v.id, new Point(v.x, v.y)]));
   const outline = new Polygon(wall.boundary.map(id => points.get(id)));

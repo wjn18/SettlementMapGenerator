@@ -45,7 +45,7 @@ export function defensiveEnvelope(points: readonly Point2[], clearance = 3): Pol
 /** Replace the city fortification in exported topology. Street/parcel geometry
  * stays in place: crossings share gate vertices and buildings respect the new
  * wall corridor. Castle walls remain their own compact enclosure. */
-export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] = []): void {
+export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] = [], plannedEnvelope?: Polygon): void {
   const wall = town.walls.find(w => w.kind === 'city');
   if (!wall) return;
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
@@ -56,14 +56,21 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
     town.vertices.push(v); vertices.set(v.id, v); byPosition.set(key, v); return v;
   };
   const castle = town.walls.find(w => w.kind === 'castle');
-  const envelope = defensiveEnvelope([...wall.boundary, ...(castle?.boundary ?? [])].map(id => vertices.get(id)!));
+  const envelope = plannedEnvelope ?? defensiveEnvelope([...wall.boundary, ...(castle?.boundary ?? [])].map(id => vertices.get(id)!));
   const wet = (p: Point2) => waterCuts.some(c => inRing(c, p));
   const oldGateIds = new Set(wall.gateIds), oldEntrances = new Set(town.gates.filter(g => oldGateIds.has(g.id)).map(g => g.vertexId));
   town.gates = town.gates.filter(g => !oldGateIds.has(g.id));
   town.entrances = town.entrances.filter(id => !oldEntrances.has(id));
   wall.gateIds = [];
   const bridgeRoads = new Set(town.river?.bridges.map(b => b.roadId) ?? []);
-  const crossings: { vertex: Vertex; edge: number; t: number; halfWidth: number }[] = [];
+  const candidates: { vertex: Vertex; edge: number; t: number; halfWidth: number; inside: boolean; outside: boolean }[] = [];
+  const roadSide = (p: Point2): number => {
+    const clearance = Math.min(...envelope.map((a, i) => {
+      const b = envelope[(i + 1) % envelope.length];
+      return cross(a, b, p) / Point.distance(a, b);
+    }));
+    return clearance > 1e-7 ? 1 : clearance < -1e-7 ? -1 : 0;
+  };
   for (const road of town.roads) {
     // River crossings are already separate bridge structures, not land gates.
     if (bridgeRoads.has(road.id)) continue;
@@ -76,18 +83,24 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
         const p = mixPoint(a, b, hit[0]); if (wet(p)) continue;
         const vertex = add(p);
         hits.push({ t: hit[0], vertex });
-        const previous = crossings.find(g => g.vertex.id === vertex.id);
+        const previous = candidates.find(g => g.vertex.id === vertex.id);
+        const sides = [roadSide(mixPoint(p, a, 0.01)), roadSide(mixPoint(p, b, 0.01))];
         // Oblique roads need a correspondingly wider opening in the wall.
         const sine = Math.abs((b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)) / Math.hypot(b.x - a.x, b.y - a.y) / Point.distance(c, d);
         const halfWidth = Math.min(8, (road.width / 2 + 0.5) / Math.max(0.35, sine));
-        if (previous) previous.halfWidth = Math.max(previous.halfWidth, halfWidth);
-        else crossings.push({ vertex, edge, t: hit[1], halfWidth });
+        if (previous) {
+          previous.halfWidth = Math.max(previous.halfWidth, halfWidth);
+          previous.inside ||= sides.includes(1); previous.outside ||= sides.includes(-1);
+        } else candidates.push({ vertex, edge, t: hit[1], halfWidth, inside: sides.includes(1), outside: sides.includes(-1) });
       }
       next.push(a.id, ...hits.sort((a, b) => a.t - b.t).map(h => h.vertex.id));
     }
     next.push(original.at(-1)!.id);
     road.vertexIds = next.filter((id, i) => i === 0 || id !== next[i - 1]);
   }
+  // Infill streets can end at the wall. Only routes with land connections on
+  // both sides need gates, including shared endpoints of two separate roads.
+  const crossings = candidates.filter(c => c.inside && c.outside);
   for (const crossing of crossings) {
     const id = `gate-city-${wall.gateIds.length}`;
     wall.gateIds.push(id); town.gates.push({ id, wallId: wall.id, vertexId: crossing.vertex.id }); town.entrances.push(crossing.vertex.id);
@@ -95,7 +108,7 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
   const boundary: string[] = [], active: boolean[] = [], towerCandidates: string[] = [];
   for (let edge = 0; edge < envelope.length; edge++) {
     const a = envelope[edge], b = envelope[(edge + 1) % envelope.length], length = Point.distance(a, b);
-    const gates = crossings.filter(g => g.edge === edge), cuts = [0, 1];
+    const gates = crossings.filter(g => g.edge === edge), cuts = [0, 1, ...candidates.filter(c => c.edge === edge).map(c => c.t)];
     const parameter = (p: Point2) => ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / (length * length);
     cuts.push(...splitSegment(a, b, waterCuts).map(parameter));
     const intervals = Math.max(1, Math.ceil(length / 22));
@@ -120,8 +133,11 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
   town.entrances = [...new Set(town.entrances)];
   const corridors = boundary.flatMap((id, i) => active[i] ? [[vertices.get(id)!, vertices.get(boundary[(i + 1) % boundary.length])!]] : []);
   const clear = (ids: string[]) => !corridors.some(path => polygonTouchesRiver(ids.map(id => vertices.get(id)!), { centerline: path, width: 4.4, bankWidth: 0 }));
-  town.buildings = town.buildings.filter(b => clear(b.boundary));
-  town.features = town.features.filter(f => clear(f.boundary));
+  // New plans reserve this corridor while producing geometry, not after it.
+  if (!plannedEnvelope) {
+    town.buildings = town.buildings.filter(b => clear(b.boundary));
+    town.features = town.features.filter(f => clear(f.boundary));
+  }
   for (const d of town.districts) d.withinWalls = d.withinCity && containsPolygon(envelope, d.boundary.map(id => { const v = vertices.get(id)!; return new Point(v.x, v.y); }));
   town.bounds = { minX: Math.min(...town.vertices.map(v => v.x)), minY: Math.min(...town.vertices.map(v => v.y)), maxX: Math.max(...town.vertices.map(v => v.x)), maxY: Math.max(...town.vertices.map(v => v.y)) };
 }

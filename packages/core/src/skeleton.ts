@@ -3,6 +3,7 @@ import { Point, Polygon } from './geometry.js';
 import { Model, Patch } from './model.js';
 import { createWard } from './wards.js';
 import { inRing, pointKey } from './terrain-geometry.js';
+import { planWalledInfill } from './infill.js';
 import type { ResolvedFeatures } from './model.js';
 import type { WardType } from './wards.js';
 
@@ -174,6 +175,11 @@ export class SkeletonModel extends Model {
     this.conformBoundaries();
   }
 
+  planInfill(waterCuts: import('./types.js').Point2[][]): void {
+    planWalledInfill(this, waterCuts);
+    if (this.cityEnvelope) this.conformBoundaries();
+  }
+
   /** Share every road junction, including T junctions, by object identity. */
   private conformBoundaries(): void {
     const points = new Map<string, Point>();
@@ -209,7 +215,8 @@ export class SkeletonModel extends Model {
 
   override createWards(): void {
     const r = this.context.random;
-    const available = this.patches.filter(p => p.withinCity && p !== this.citadel && p !== this.plaza).sort((a, b) => a.shape.center.length - b.shape.center.length);
+    const available = this.patches.filter(p => p.withinCity && p.infill !== 'green' && p !== this.citadel && p !== this.plaza).sort((a, b) => a.shape.center.length - b.shape.center.length);
+    for (const p of this.patches) if (p.infill === 'green') p.ward = createWard('Park', this, p);
     if (this.plaza) this.plaza.ward = createWard('Market', this, this.plaza);
     const mix: WardType[] = ['CraftsmenWard', 'CraftsmenWard', 'MerchantWard', 'CraftsmenWard', 'Slum', 'CraftsmenWard', 'PatriciateWard', 'GateWard', 'CraftsmenWard', 'CraftsmenWard', 'MerchantWard', 'Park'];
     available.forEach((p, i) => {

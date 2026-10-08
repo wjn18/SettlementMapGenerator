@@ -3,7 +3,7 @@ import type { Point, Polygon } from './geometry.js';
 import { containsPolygon } from './geometry.js';
 import type { Model, CurtainWall } from './model.js';
 import type { TownData, NormalizedOptions, Vertex, Wall, Gate, Building, Feature, Road } from './types.js';
-export const GENERATOR_VERSION = '0.10.0';
+export const GENERATOR_VERSION = '0.11.0';
 export function exportTown(model: Model, request: NormalizedOptions, attempts: number): TownData {
   const vertices: Vertex[] = [], ids = new Map<Point, string>();
   const vertex = (p: Point): string => {

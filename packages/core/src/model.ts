@@ -8,6 +8,7 @@ import { polygonTouchesRiver } from './river.js';
 
 export class Patch {
   withinCity = false; withinWalls = false; ward: Ward | null = null;
+  infill: 'housing' | 'green' | null = null;
   constructor(readonly shape: Polygon) {}
 }
 export interface ResolvedFeatures { plaza: boolean; castle: boolean; walls: boolean }
@@ -18,6 +19,8 @@ export class Model {
   plannedLayout = false;
   primaryEntrances = new Set<Point>();
   roadWidths = new Map<Polygon, number>();
+  cityEnvelope: Polygon | null = null;
+  wallCorridors: Polygon[] = [];
   patches: Patch[] = []; inner: Patch[] = [];
   citadel: Patch | null = null; plaza: Patch | null = null; center = new Point();
   border: CurtainWall | null = null; wall: CurtainWall | null = null;
@@ -139,7 +142,9 @@ export class Model {
         const nearby = [...this.roadWidths].filter(([path, width]) => Math.max(...path.map(v => v.x)) + width / 2 >= minX && Math.min(...path.map(v => v.x)) - width / 2 <= maxX && Math.max(...path.map(v => v.y)) + width / 2 >= minY && Math.min(...path.map(v => v.y)) - width / 2 <= maxY);
         // Reserve the entire road corridor, including the round caps of T
         // junctions and bridge landings that an edge-only inset cannot express.
-        p.ward!.geometry = p.ward!.geometry.filter(shape => shape.square > 0.05 && containsPolygon(p.shape, shape) && !nearby.some(([path, width]) => polygonTouchesRiver(shape, { centerline: path, width, bankWidth: 0.05 })));
+        p.ward!.geometry = p.ward!.geometry.filter(shape => shape.square > 0.05 && containsPolygon(p.shape, shape)
+          && !nearby.some(([path, width]) => polygonTouchesRiver(shape, { centerline: path, width, bankWidth: 0.05 }))
+          && !this.wallCorridors.some(path => polygonTouchesRiver(shape, { centerline: path, width: 4.4, bankWidth: 0 })));
       }
     }
   }

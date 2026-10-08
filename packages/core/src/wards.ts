@@ -4,6 +4,7 @@ import { Point, Polygon, distanceToLine, interpolate } from './geometry.js';
 import { bisect, radial, ring } from './cutter.js';
 import { CurtainWall } from './model.js';
 import { createCastleFootprint } from './castle.js';
+import { partitionLand } from './terrain-geometry.js';
 import type { Model, Patch } from './model.js';
 
 type CommonParameters = [minSquare: number, gridChaos: number, sizeChaos: number, emptyProbability: number];
@@ -58,6 +59,9 @@ export class Ward {
     if (type === 'Castle') this.wall = new CurtainWall(true, model, [patch], patch.shape.filter(v => model.patchByVertex(v).some(p => !p.withinCity)));
   }
   createGeometry(): void {
+    // Wall-side remnants remain usable public land even when they cannot hold
+    // a building or a grove after the defensive corridor is reserved.
+    if (this.model.cityEnvelope && this.getCityBlock().square < 8) { this.geometry = []; return; }
     if (this.parameters) {
       this.geometry = createAlleys(this.model.context, this.getCityBlock(), ...this.parameters);
       if (!this.model.isEnclosed(this.patch)) this.filterOutskirts();
@@ -90,7 +94,12 @@ export class Ward {
         do { value = Math.max(value, inset[j]); j = (j + 1) % inset.length; } while (j !== end);
         return value;
       });
-      return shape.isConvex() ? shape.shrink(distances) : shape.buffer(distances);
+      const block = shape.isConvex() ? shape.shrink(distances) : shape.buffer(distances);
+      if (m.cityEnvelope && p.withinWalls) {
+        const candidates = partitionLand(block, m.cityEnvelope.shrinkEq(2.8)).inside;
+        return candidates.sort((a, b) => b.square - a.square)[0] ?? new Polygon();
+      }
+      return block;
     }
     return p.shape.isConvex() ? p.shape.shrink(inset) : p.shape.buffer(inset);
   }

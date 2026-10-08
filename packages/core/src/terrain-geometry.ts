@@ -64,3 +64,26 @@ export function positiveRing(points: Point2[]): Point[] {
   const ring = new Polygon(points.map(p => new Point(p.x, p.y)));
   return ring.square < 0 ? ring.reverse() : ring;
 }
+
+/** Partition land against a positive convex boundary using half-plane cuts.
+ * Retain disconnected pieces of concave land.
+ * The half-plane cutters extend beyond the subject, so no polygon holes arise. */
+export function partitionLand(subject: Polygon, boundary: Polygon): { inside: Polygon[]; outside: Polygon[] } {
+  let inside = [subject]; const outside: Polygon[] = [];
+  boundary.forEdge((a, b) => {
+    const direction = b.subtract(a).norm(), normal = direction.rotate90();
+    const next: Polygon[] = [];
+    for (const ring of inside) {
+      const distances = ring.map(p => p.subtract(a).dot(normal));
+      if (Math.min(...distances) >= -1e-7) { next.push(ring); continue; }
+      if (Math.max(...distances) <= 1e-7) { outside.push(ring); continue; }
+      const extent = Math.max(...ring.map(p => Point.distance(a, p))) * 4 + 1;
+      const left = a.subtract(direction.scale(extent)), right = a.add(direction.scale(extent));
+      const offset = normal.scale(extent);
+      next.push(...subtractRing(ring, [left, left.subtract(offset), right.subtract(offset), right]));
+      outside.push(...subtractRing(ring, [left, right, right.add(offset), left.add(offset)]));
+    }
+    inside = next;
+  });
+  return { inside, outside };
+}

@@ -16,7 +16,7 @@ interface Plan {
   local(p: Point2): Point; world(p: Point2): Point;
 }
 interface ShoreEdge { path: Polygon; patch: Patch; kind: 'coast' | 'river' }
-export const TERRAIN_GENERATOR_VERSION = '0.10.0';
+export const TERRAIN_GENERATOR_VERSION = '0.11.0';
 const wet = (p: Point2, plan: Plan): boolean => plan.cuts.some(ring => inRing(ring, p));
 const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => {
   if (shape.some(p => inRing(cut, p)) || cut.some(p => inRing(shape, p))) return true;
@@ -203,7 +203,9 @@ function buildLandRoads(model: Model, plan: Plan): { shores: ShoreEdge[]; bridge
   // Routes to the countryside use the dry-land graph, with bridge edges already present.
   const cityPoints = new Set(model.patches.filter(p => p.withinCity).flatMap(p => [...p.shape]));
   const blocked = [...(model.wall?.shape ?? []), ...(model.citadel?.shape ?? [])].filter(p => !model.gates.includes(p) && nodes.has(p)).map(node);
-  const starts = model.border!.gates.filter(p => nodes.has(p));
+  const starts = model.cityEnvelope
+    ? [...guideNodes.keys()].filter(p => cityPoints.has(p) && [...guideNodes.get(p)!.links.keys()].some(n => !cityPoints.has(guidePoints.get(n)!)))
+    : model.border!.gates.filter(p => nodes.has(p));
   for (const start of starts.slice(0, model.plannedLayout ? starts.length : 5)) {
     const direction = start.subtract(model.center).norm(1);
     let candidates = [...nodes.keys()].filter(p => !cityPoints.has(p));
@@ -269,10 +271,13 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
   model.context.stage = 'buildWalls'; model.buildWalls(); clipDistricts(model, plan);
   if (model instanceof SkeletonModel) model.fitLandDistricts();
   yield 'buildWalls';
+  if (model instanceof SkeletonModel && model.wall) {
+    model.context.stage = 'planWalledInfill'; model.planInfill(plan.cuts); yield 'planWalledInfill';
+  }
   model.context.stage = 'buildStreets'; const { shores, bridges } = buildLandRoads(model, plan); yield 'buildStreets';
   model.context.stage = 'createWards'; model.createWards();
   if (plan.coast && request.harbor !== false) for (const { patch, kind } of shores) {
-    if (kind === 'coast' && patch !== model.citadel && patch !== model.plaza) patch.ward = createWard('Harbor', model, patch);
+    if (kind === 'coast' && patch.infill !== 'green' && patch !== model.citadel && patch !== model.plaza) patch.ward = createWard('Harbor', model, patch);
   }
   yield 'createWards'; model.context.stage = 'buildGeometry';
   if (model.plannedLayout) model.buildGeometry();
@@ -286,7 +291,7 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
   yield 'buildGeometry'; model.context.stage = 'export';
   const town = exportTown(model, request, attempts);
   town.generatorVersion = TERRAIN_GENERATOR_VERSION;
-  if (!request.river && !request.coast) { rebuildCityFortifications(town); return town; }
+  if (!request.river && !request.coast) { rebuildCityFortifications(town, [], model.cityEnvelope ?? undefined); return town; }
   const plain = (p: Point2): Point2 => ({ x: p.x, y: p.y });
   town.terrain = { ...(plan.coast ? { coast: { ...plan.coast, shoreline: plan.coast.shoreline.map(plain), water: plan.coast.water.map(plain) } } : {}), waterfronts: [], docks: [] };
   const index = new Map(town.vertices.map(v => [v.id, v]));
@@ -321,7 +326,7 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
     if (!town.terrain.docks.length) throw new RetryableError('No accessible harbor frontage');
   }
   trimWalls(town, plan);
-  rebuildCityFortifications(town, plan.cuts);
+  rebuildCityFortifications(town, plan.cuts, model.cityEnvelope ?? undefined);
   // Include water extents in world bounds, keeping exact bounds validation and exports.
   for (const p of [...(plan.coast?.water ?? []), ...(plan.river?.surface ?? [])]) town.vertices.push({ id: `v${town.vertices.length}`, x: p.x, y: p.y });
   town.bounds = { minX: Math.min(...town.vertices.map(v => v.x)), minY: Math.min(...town.vertices.map(v => v.y)), maxX: Math.max(...town.vertices.map(v => v.x)), maxY: Math.max(...town.vertices.map(v => v.y)) };
