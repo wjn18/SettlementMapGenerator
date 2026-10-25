@@ -18,6 +18,7 @@
     "build:packages": "npm run build:core && npm run build --workspace @settlement/map-scene && npm run build --workspace @settlement/renderer-openfl && npm run build --workspace @settlement/renderer-canvas && npm run build --workspace @settlement/renderer-svg",
     "build:core": "npm run build --workspace @settlement/core",
     "generate": "node scripts/generate-town.mjs",
+    "sample:3d": "node scripts/generate-3d-sample.mjs",
     "test:terrain:batch": "npm run build:core && node scripts/check-terrain-batch.mjs",
     "test:sizes:batch": "npm run build:core && node scripts/check-city-sizes.mjs",
     "test:p2": "npm run build:core && node --test tests/core/*.test.mjs",
