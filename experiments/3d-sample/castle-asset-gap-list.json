@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1",
+  "title": "城堡专用三维素材缺口",
+  "source": "../../artifacts/web-3d/b26bb403-eaa3-4916-834e-b4308242b64a/source-town.json",
+  "requiredBy": {"districtId": "d56", "wallId": "w1", "gateId": "g16"},
+  "scopeNote": "专用素材均待制作；已有程序占位与入口几何修复不等于专用资产完成。数量为建议套件数，不是场景实例数。",
+  "gaps": [
+    {"assetId":"castle_keep_kit","priority":"P0","state":"missing","name":"主堡","kits":1,"components":["石砌立面","主屋顶/平顶垛口","入口","窄窗"]},
+    {"assetId":"castle_gatehouse_kit","priority":"P0","state":"missing","name":"城堡门楼","kits":1,"components":["可变宽门洞","拱券","上层守卫室"]},
+    {"assetId":"castle_gate_hardware","priority":"P1","state":"missing","name":"门楼附属构件","kits":1,"components":["木门扇","铁栅","铰链","升降装置"]},
+    {"assetId":"castle_tower_kit","priority":"P1","state":"missing","name":"城堡塔楼","kits":2,"components":["圆塔","方塔","顶部","箭窗","檐口"]},
+    {"assetId":"castle_wall_walk_kit","priority":"P1","state":"missing","name":"城防与墙上通行构件","kits":1,"components":["垛口","女墙","墙顶步道","楼梯","栏杆"]},
+    {"assetId":"castle_annex_kit","priority":"P1","state":"missing","name":"附属建筑","kits":1,"components":["大厅/守卫房/仓储屋顶与立面变体"]},
+    {"assetId":"castle_courtyard_props","priority":"P2","state":"missing","name":"庭院装饰","kits":1,"components":["旗帜","火盆","武器架","补给小物"]}
+  ],
+  "recommendedFirstBatch": ["castle_keep_kit", "castle_gatehouse_kit"],
+  "assemblyRequirements": ["先分配主堡与附属建筑角色，源规划没有逐栋角色","保留建筑占地、墙线、塔楼定位点和入口点","门扇默认开启，塔楼及附属构件不得阻塞入口","吊桥与护城河不属于本次规划，不默认添加"],
+  "deliveryMinimum": ["可编辑 .blend 或可拼装 .glb","统一单位、原点、朝向与材质槽","说明安装面、可伸缩轴与占用范围","纹理随模型交付；PNG 不计作已完成三维资产","重新执行占地、墙线和入口通行验证"]
+}
