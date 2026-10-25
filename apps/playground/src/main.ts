@@ -1,5 +1,6 @@
 import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTown, normalizeMapName, estimatePopulation } from '@settlement/core';
 import { GenerationTask } from './generation-task';
+import { createThreeD } from './three-d';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas, PopulationDensity, PopulationEstimate } from '@settlement/core';
 import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance } from '@settlement/map-scene';
 import type { MapScene, Viewport, SceneOptions } from '@settlement/map-scene';
@@ -39,6 +40,7 @@ districtColors.checked = params.get('districts') !== 'false';
 if (params.get('capture') === '1') document.body.dataset.capture = 'true';
 let rendererKind: RendererKind = isRendererKind(params.get('renderer')) ? params.get('renderer') as RendererKind : 'canvas';
 let renderer = rendererFactories[rendererKind](host), town: TownData | null = null, scene: MapScene | null = null;
+const threeD = createThreeD(() => town);
 $<HTMLSelectElement>('renderer').value = rendererKind;
 let viewport: Viewport = { centerX: 0, centerY: 0, zoom: 1 }, baseZoom = 1, generationCount = 0, revision = 0;
 let width = 1, height = 1;
@@ -183,6 +185,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   status.textContent = (source === 'imported' ? '已导入地图 · 原始几何已保留' : '地图已就绪') + namesNotice;
   $('hover-label').textContent = '将指针移入地图，查看街区用途';
   fit(); syncURL(); drawTheme(); document.body.dataset.ready = 'true';
+  void threeD.update();
 }
 async function generate(value = options()): Promise<void> {
   const request = ++generationRequest;
