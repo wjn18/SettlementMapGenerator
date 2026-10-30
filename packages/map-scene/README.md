@@ -16,7 +16,11 @@ const viewport = fitViewport(scene.bounds, 800, 800, 32);
 
 `themeFromCityPalette(JSON.parse(text))` 校验并转换参考网站的十色 JSON，包括字符串形式的 0–100 数值。`tintMethod: Overlay` 将暖色以叠加方式混入屋顶，`Spectrum` 按街区改变屋顶色相；`tintStrength` 控制强度。`weathering` 按建筑产生向纸色褪色的效果。外观噪声仅取决于地图种子及街区/建筑 ID，重绘和导出保持一致。这些是本项目的可移植近似算法，并非原网站纹理/做旧算法的复刻。所有效果在共享场景中计算，Canvas、SVG、OpenFL 与 PNG/SVG 导出使用同一组颜色；页面底部的种子说明是独立 UI，不包含在图片导出中。
 
-主页面和并排比较页共用 `THEMES` / `THEME_LABELS` 的 12 套预设。可用 `?theme=turquoise` 等 URL 参数恢复配色。单元验证：`node --test tests/p3/*.test.mjs`（先构建包）；新增浏览器验证：`npx playwright test --config playwright.p5.config.ts tests/p5/themes.spec.ts`。
+主页面和并排比较页共用 `THEMES` / `THEME_LABELS` 的 13 套预设。可用 `?theme=turquoise` 等 URL 参数恢复配色。单元验证：`node --test tests/p3/*.test.mjs`（先构建包）；新增浏览器验证：`npx playwright test --config playwright.p5.config.ts tests/p5/themes.spec.ts`。
+
+`THEMES.illustrated`（手绘羊皮纸）提供暖色纸纹、克制的街区配色、屋顶脊线、沿水面裁切的波纹和岸线、农田垄线、避让道路及建筑的树丛、木栈桥、船舱与帆装细节，以及教堂、城堡和集市图标。主页面未指定主题时默认使用这一风格；显式主题 URL 保留原选择。`buildMapScene(town, THEMES.illustrated, { illustration: false })` 可保留配色并关闭装饰。
+
+装饰使用独立的确定性随机序列，不修改 TownData、地块、建筑、道路、水域和泊位。河港船只直接采用源规划的中心、朝向和尺寸；海港船只是经过水面检查的绘图点缀。`scene.landmarks` 保存可命中所属街区的图标位置，`scene.illustration` 提供装饰计数。细节均进入三种绘制器和 PNG/SVG 导出；纸纹由共享像素算法生成小幅纹理，在 SVG 中内嵌，无需外部图片资源。矢量波纹、农田、码头和树木仍可编辑。
 
 街区分色：`buildMapScene(town, theme, { districtColors: true })` 根据 `wardType` 分配颜色，工匠区陶土橙、平民区灰橄榄、城堡紫、商人区青绿、行政区蓝等。颜色由 `districtColor(theme, wardType)` 统一计算，同类街区保持同一色系，主题纸色参与少量混色。建筑只做小幅明暗变化，避免随机色相掩盖用途；街区地面铺淡色，使空广场和城堡院落也能区分。原始几何、种子、命中区域不变，三种渲染器与导出共享分色后的场景。调用库时默认关闭以保持兼容；主页面和比较页默认开启，可通过「街区分色」开关或 `districts=false` 关闭。图例只展示地图实际包含的类型，色块使用同一颜色函数；图例属于页面 UI，不包含在地图图片导出中。
 

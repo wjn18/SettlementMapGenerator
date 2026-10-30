@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT, paperTexturePixels } from '@settlement/map-scene';
 import type { MapScene, Viewport, DrawCommand, MapRenderer } from '@settlement/map-scene';
 export type { MapRenderer } from '@settlement/map-scene';
 import type Graphics from 'openfl/lib/openfl/display/Graphics';
@@ -10,6 +10,8 @@ export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
   prepareShaderCache();
   const stage = new Stage(0, 0, 0xccc5b8, undefined, { element: mount, renderer: 'webgl2', allowHighDPI: true, context: { antialiasing: 4, preserveDrawingBuffer: true } });
   const releaseShaders = ownShaderCache();
+  const paperSprite=new Sprite();paperSprite.mouseEnabled=false;stage.addChild(paperSprite);
+  let paperData:InstanceType<typeof BitmapData>|null=null,paperKey='';
   const sprite = new Sprite(); sprite.mouseEnabled = false; stage.addChild(sprite);
   const labelCanvas = document.createElement('canvas'), labelContext = labelCanvas.getContext('2d')!;
   const labelBitmap = new Bitmap(); stage.addChild(labelBitmap);
@@ -32,7 +34,18 @@ export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
     }
     g.endFill();
   }
-  function paint(): void { sprite.graphics.clear(); if (scene) for (const command of scene.commands) draw(sprite.graphics, command); }
+  function paintPaper():void {
+    const key=scene?.paperTexture?`${scene.paperTexture.seed}/${scene.paperTexture.color}`:'';
+    if(key!==paperKey){
+      paperKey=key;paperData?.dispose();paperData=null;
+      if(scene?.paperTexture){
+        const tile=document.createElement('canvas');tile.width=tile.height=128;
+        const context=tile.getContext('2d')!,pixels=context.createImageData(128,128);pixels.data.set(paperTexturePixels(scene.paperTexture));context.putImageData(pixels,0,0);paperData=BitmapData.fromCanvas(tile);
+      }
+    }
+    const g=paperSprite.graphics;g.clear();if(paperData){g.beginBitmapFill(paperData,undefined,true,true);g.drawRect(0,0,width,height);g.endFill();}
+  }
+  function paint(): void { paintPaper();sprite.graphics.clear(); if (scene) for (const command of scene.commands) draw(sprite.graphics, command); }
   function paintCartography(ctx: CanvasRenderingContext2D): void {
     if (!scene) return;
     for (const layer of layoutCartography(scene, viewport, width, height)) for (const command of layer.commands) {
@@ -92,13 +105,14 @@ export function createOpenFLRenderer(container: HTMLElement): MapRenderer {
         canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
         win.onResize.dispatch(w, h);
       }
-      position();
+      paintPaper();position();
     },
     pick(x, y) {
       alive(); return pickScene(scene, viewport, width, height, x, y);
     },
     dispose() {
       if (disposed) return; disposed = true; scene = null; sprite.graphics.clear(); stage.removeChild(sprite);
+      paperSprite.graphics.clear();paperData?.dispose();paperData=null;stage.removeChild(paperSprite);
       const canvas = mount.querySelector('canvas'), gl = canvas?.getContext('webgl2');
       labelBitmap.bitmapData?.dispose(); labelBitmap.bitmapData = null!;
       disposeRuntime(stage); releaseShaders(); gl?.getExtension('WEBGL_lose_context')?.loseContext(); mount.remove();

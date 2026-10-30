@@ -11,6 +11,7 @@ export interface MapTheme {
   roof?: string; road?: string; water?: string; green?: string;
   wall?: string; tree?: string; label?: string;
   tintMethod?: 'Overlay' | 'Spectrum'; tintStrength?: number; weathering?: number;
+  illustration?: boolean;
 }
 
 const colorFields = ['paper', 'light', 'medium', 'dark', 'roof', 'road', 'water', 'green', 'wall', 'tree', 'label'] as const;
@@ -27,6 +28,7 @@ export function validateTheme(palette: MapTheme): void {
     if (value !== undefined && (!Number.isFinite(value) || value < 0 || value > 100)) throw new Error(`Invalid theme effect: ${key}`);
   }
   if (palette.tintMethod !== undefined && palette.tintMethod !== 'Overlay' && palette.tintMethod !== 'Spectrum') throw new Error('Invalid theme tintMethod');
+  if (palette.illustration !== undefined && typeof palette.illustration !== 'boolean') throw new Error('Invalid theme illustration');
 }
 
 /** Adapter for the reference site's palette JSON; all ten source colors are retained. */
@@ -61,6 +63,12 @@ function theme(paper: string, light: string, medium: string, dark: string): Read
   return Object.freeze({ paper, light, medium, dark, normalStroke: 0.3, thickStroke: 1.8 });
 }
 export const THEMES = Object.freeze({
+  illustrated: Object.freeze({
+    paper: '#e1d4b8', light: '#e8dcc1', medium: '#a3a58d', dark: '#3e4439',
+    roof: '#b8a27d', road: '#efe5cf', water: '#91aaa9', green: '#bdbea0',
+    wall: '#515647', tree: '#8e9a72', label: '#394d47',
+    normalStroke: 0.28, thickStroke: 2.3, weathering: 20, illustration: true,
+  }),
   parchment: theme('#ccc5b8', '#99948a', '#67635c', '#1a1917'),
   blueprint: theme('#455b8d', '#7383aa', '#a1abc6', '#fcfbff'),
   ancient: theme('#ccc5a3', '#a69974', '#806f4d', '#342414'),
@@ -72,6 +80,7 @@ export const THEMES = Object.freeze({
   natural: themeFromCityPalette(natural), june: themeFromCityPalette(june),
 });
 export const THEME_LABELS: Readonly<Record<keyof typeof THEMES, string>> = Object.freeze({
+  illustrated: '手绘羊皮纸',
   parchment: '旧羊皮纸', blueprint: '建筑蓝图', ancient: '古地图', colour: '田园彩绘', ink: '墨色', monochrome: '黑白',
   modern: '现代 · modern', turquoise: '绿松石 · turquoise', fairytale: '童话 · fairytale',
   tapestry: '织锦 · tapestry', natural: '自然 · natural', june: '六月 · june',
@@ -109,7 +118,13 @@ export const DISTRICT_STYLES = Object.freeze({
 export function districtColor(palette: MapTheme, wardType: string): string {
   const style = Object.hasOwn(DISTRICT_STYLES, wardType) ? DISTRICT_STYLES[wardType as keyof typeof DISTRICT_STYLES] : DISTRICT_STYLES.Ward;
   // A light paper wash ties categories to the selected theme without losing their identity.
-  return mixColor(style.color, palette.paper, 0.12);
+  const ink: Record<string,string> = {
+    Harbor:'#b39a6b',CraftsmenWard:'#c2a274',Slum:'#b0aaa1',Castle:'#8b7255',
+    MerchantWard:'#8f9d73',AdministrationWard:'#889bbb',PatriciateWard:'#b89985',
+    MilitaryWard:'#929b98',Cathedral:'#bd9589',GateWard:'#c2b18a',
+    Market:'#d6c9a8',Park:'#a6b18a',Farm:'#b7b48e',Ward:'#b9b29c',
+  };
+  return mixColor(palette.illustration ? ink[wardType]??ink.Ward : style.color, palette.paper, palette.illustration ? 0.04 : 0.12);
 }
 export function districtRoofColor(palette: MapTheme, wardType: string, seed: number, building: string): string {
   const base = districtColor(palette, wardType);

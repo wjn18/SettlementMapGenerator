@@ -1,14 +1,16 @@
-import { pickScene, layoutMapLabels, labelFont, LABEL_FONT, layoutCartography } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, LABEL_FONT, layoutCartography, paperTexturePixels } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface SVGRenderer extends MapRenderer { exportSVG(): string }
 const namespace='http://www.w3.org/2000/svg';
+let nextPaperId=0;
 export function createSVGRenderer(container: HTMLElement): SVGRenderer {
   const svg=document.createElementNS(namespace,'svg'),background=document.createElementNS(namespace,'rect'),group=document.createElementNS(namespace,'g'),labelGroup=document.createElementNS(namespace,'g');
   const measure = document.createElement('canvas').getContext('2d')!;
+  const definitions=document.createElementNS(namespace,'defs'),paperId=`settlement-paper-${nextPaperId++}`;
   const cartographyGroup = document.createElementNS(namespace, 'g');
   cartographyGroup.setAttribute('data-cartography', ''); cartographyGroup.style.pointerEvents = 'none';
   labelGroup.setAttribute('data-map-labels', ''); labelGroup.style.pointerEvents = 'none';
-  svg.style.display='block';svg.append(background,group,cartographyGroup,labelGroup);container.append(svg);
+  svg.style.display='block';svg.append(definitions,background,group,cartographyGroup,labelGroup);container.append(svg);
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),disposed=false;
   let scene:MapScene|null=null,viewport:Viewport={centerX:0,centerY:0,zoom:1};
   const alive=()=>{if(disposed)throw new Error('Renderer has been disposed');};
@@ -64,6 +66,15 @@ export function createSVGRenderer(container: HTMLElement): SVGRenderer {
   return {
     render(value){
       alive();scene=value;background.setAttribute('fill',value.background);
+      definitions.replaceChildren();
+      if(value.paperTexture){
+        const tile=document.createElement('canvas');tile.width=tile.height=128;
+        const context=tile.getContext('2d')!,pixels=context.createImageData(128,128);pixels.data.set(paperTexturePixels(value.paperTexture));context.putImageData(pixels,0,0);
+        const pattern=document.createElementNS(namespace,'pattern'),image=document.createElementNS(namespace,'image');
+        pattern.id=paperId;pattern.setAttribute('patternUnits','userSpaceOnUse');pattern.setAttribute('width','128');pattern.setAttribute('height','128');
+        image.setAttribute('href',tile.toDataURL('image/png'));image.setAttribute('width','128');image.setAttribute('height','128');
+        pattern.append(image);definitions.append(pattern);background.setAttribute('fill',`url(#${paperId})`);
+      }
       const fragment=document.createDocumentFragment();
       for(const command of value.commands){
         const node=document.createElementNS(namespace,command.kind==='circle'?'circle':'path');

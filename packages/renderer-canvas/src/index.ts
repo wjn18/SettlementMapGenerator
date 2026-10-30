@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT, paperTexturePixels } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface CanvasRenderer extends MapRenderer { exportPNG(): Promise<Blob> }
 export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
@@ -7,6 +7,15 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
   const ctx=context; container.append(canvas);canvas.style.display='block';
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),dpr=1,disposed=false;
   let scene: MapScene|null=null,viewport: Viewport={centerX:0,centerY:0,zoom:1};
+  let paperKey='',paperPattern:CanvasPattern|null=null;
+  function preparePaper():void {
+    const key=scene?.paperTexture?`${scene.paperTexture.seed}/${scene.paperTexture.color}`:'';
+    if(key===paperKey)return;paperKey=key;paperPattern=null;
+    if(!scene?.paperTexture)return;
+    const tile=document.createElement('canvas');tile.width=tile.height=128;
+    const context=tile.getContext('2d')!,pixels=context.createImageData(128,128);pixels.data.set(paperTexturePixels(scene.paperTexture));context.putImageData(pixels,0,0);
+    paperPattern=ctx.createPattern(tile,'repeat');
+  }
   const alive=()=>{if(disposed)throw new Error('Renderer has been disposed');};
   function paintCartography(ctx: CanvasRenderingContext2D): void {
     if (!scene) return;
@@ -35,7 +44,7 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
   function paint(): void {
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
     if(!scene)return;
-    ctx.fillStyle=scene.background;ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=paperPattern??scene.background;ctx.fillRect(0,0,width,height);
     ctx.setTransform(dpr*viewport.zoom,0,0,dpr*viewport.zoom,dpr*(width/2-viewport.centerX*viewport.zoom),dpr*(height/2-viewport.centerY*viewport.zoom));
     for(const command of scene.commands) {
       ctx.beginPath();
@@ -69,7 +78,7 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
   }
   resize(width,height,1);
   return {
-    render(value){alive();scene=value;paint();},
+    render(value){alive();scene=value;preparePaper();paint();},
     setViewport(value){alive();if(![value.centerX,value.centerY,value.zoom].every(Number.isFinite)||value.zoom<=0)throw new Error('Invalid viewport');viewport={...value};paint();},
     resize,
     pick(x,y){alive();return pickScene(scene,viewport,width,height,x,y);},

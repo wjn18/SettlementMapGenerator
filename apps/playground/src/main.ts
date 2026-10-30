@@ -299,4 +299,5 @@ if (params.has('coast')) initial.coast = (params.get('coast') === 'false' ? fals
 if (params.has('harbor')) initial.harbor = (params.get('harbor') === 'true' ? true : params.get('harbor') === 'false' ? false : params.get('harbor')) as boolean;
 if (params.has('riverHarbor')) initial.riverHarbor = (params.get('riverHarbor') === 'true' ? true : params.get('riverHarbor') === 'false' ? false : params.get('riverHarbor')) as boolean;
 if (params.has('theme') && Object.hasOwn(THEMES, params.get('theme')!)) theme.value = params.get('theme')!;
+else theme.value='illustrated';
 setFields(initial); void generate(initial);
