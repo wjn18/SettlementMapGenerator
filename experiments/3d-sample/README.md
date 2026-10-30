@@ -1,5 +1,61 @@
 # 规划驱动的三维样片
 
+## 2026-10-28 河口与港口组合
+
+单条河流与四向海岸已接入同一条三维流水线。源海面保持原边界，河面在入海交点裁去与海面重叠的部分，两岸陆地、自然岸坡、海岸护岸与木平桥共同装配。海岸护岸避开河口，保留码头通行、港区仓储与船舱排水规则；港口可关闭，河流与海岸仍保持连接。
+
+```powershell
+npm run sample:3d -- --seed 7 --size 12 --coast east --river true --harbor true --walls true --castle false --plaza true --output artifacts/3d-estuary-town --name scene --resolution 3200
+node tests/three-d/estuary-web.mjs --reuse-sample --port 5175
+```
+
+独立报告 `verification.json.estuary` 检查河、海源区域的联合覆盖、实际水面无重叠、干地不压水及河口无阻挡；`river` 和 `harbor` 报告继续检查桥梁、两岸、码头与船只。河口几何、验证脚本与两套素材清单参与缓存和恢复检查，缺少当前组合水域版本的旧场景会从同一源规划重建。
+
+## 2026-10-28 内陆单河与木平桥
+
+内陆单河已接入与网页共用的三维流程：使用源 `river.surface` 生成水面和两岸河槽，保留原桥位、桥宽及关联道路，装配木平桥、梁架、支桩、石桥台与桥栏。自然岸和石砌收口服从可用干地，不改变建筑占地；桥头保持原道路标高与净通行范围。保存场景后独立读取实际网格，验证水陆分离、桥面覆盖、两岸连接和支承，再渲染样片。
+
+新增的 7 项资源及重建说明见 [river-assets.md](river-assets.md)，可编辑库、GLB、纹理、预览与独立回读报告位于 `artifacts/river-assets/`。
+
+```powershell
+npm run sample:3d -- --seed 7 --size 12 --coast false --river true --walls true --castle false --plaza true --preview --output artifacts/3d-river-town --name scene
+# 导入原规划，保留已有布局：
+npm run sample:3d -- --input artifacts/3d-river-town/source-town.json --preview --output artifacts/river-import --name scene
+```
+
+样片输出包括 `scene.blend`、`city-center-render.png`、`planning.png/svg`、`source-town.json`、`selection.json`、`scene-manifest.json` 与含 `river` 结果的 `verification.json`。水面为静态淡彩，采用木平桥；石拱桥、通航净空及内河码头后续扩展。旧河流 JSON 缺少实际 `surface` 时保留二维导入，并给出明确的三维能力提示。
+
+网页验收脚本为 `node tests/three-d/river-web.mjs`，支持 `--base`、`--port`、`--input`、`--output`。未传 `--base` 时自行启动临时开发服务，默认使用独立端口 5175，任务保存到独立目录，结束后关闭服务。使用 `--reuse-sample` 会在独立任务目录预置已验证样片，实际提交规划并检查 202、缓存复用、结构报告、原规划一致及图片/场景下载，不启动额外渲染。
+
+## 2026-10-27 沿海港城
+
+海水、石砌护岸、木码头、仓库构件及划艇/渔船/商用帆船已制作为 [12 个可编辑模块与独立 GLB](../../artifacts/harbor-assets/README.md)，并接入网页和命令行共用的三维装配流程。水面与岸线使用原规划多边形；码头路径、宽度、道路连接及港区建筑占地不变。护岸细节、仓库立面选择及船只泊位属于可追溯的三维设计规则。默认沿海城内取景包含码头、船只和墙外港区。
+
+2026-10-28 补齐直接命令行配置与旧任务恢复入口：`sample:3d` 可直接使用 `--coast east --harbor true` 等规划参数。旧场景重试会核对当前素材库及港口机器清单哈希；已过期时保留源规划并重新装配，一致时继续复用保存场景。两条路径均执行船舱干燥校验。
+
+素材、重建命令与验证说明见 [harbor-assets.md](harbor-assets.md)。[港城样片](../../artifacts/3d-harbor/README.md)包含平面规划、三维场景、全景/城内图和实际几何校验报告。支持东南西北海岸、港口关闭以及与现有城堡/城墙组合；河口与海岸组合也已接入，多个市场也可分别装配和校验。
+
+## 2026-10-27 管线性能优化
+
+网页与命令行默认只生成城内图，全景与城堡图按需渲染。网页选择其他取景会复用该规划的校验场景；重复生成相同质量及取景会直接复用已完成图片。输入、几何代码、素材库、校验器、渲染器和文件哈希分别参与缓存校验，渲染质量和图片尺寸也必须匹配。场景或校验报告被改写、素材/代码变化、图片损坏时会失效，缓存不会放宽任何几何检查。
+
+原生建筑、城墙和素材在脱离场景的集合中装配后统一挂载；顶点变换只计算一次，已完全包含的部件跳过无效裁切，仍保留原图元与 UV。市场、树木、店面占用物以及独立校验使用空间索引筛选附近对象，再运行原有精确判断。底色、线稿与遮挡层使用临时场景，预先记录遮挡索引，避免逐次改写数万对象的显示状态。没有删减建筑、装饰、材质或高清采样。
+
+`pipeline-performance.json` 记录实际子进程耗时；`build-timing.json`、`render-timing.json` 和每张图片的 `*.render.json` 进一步记录构建与渲染阶段。完整的等输出对比报告保存在 `artifacts/3d-performance/report.html` 及 `report.json`，报告区分历史时间线估算、当前进程实测与缓存命中，不混用性能分析器附加耗时。
+
+```powershell
+# 默认只渲染城内图；预览仍保留完整模型
+npm run sample:3d -- --input town.json --name scene --preview
+# 明确生成全景、城内与城堡的全套图片
+npm run sample:3d -- --input town.json --name scene --details
+# 复用有有效缓存签名的校验场景，换取景或质量
+npm run sample:3d -- --input town.json --name scene --reuse-scene artifacts/web-3d/<任务ID> --view full
+```
+
+新输出的图片统一命名为 `city-center-render.png`、`scene-render.png`、`castle-wall-detail.png`；旧样片文件继续作为历史产物保留。`--reuse-scene` 要求完全一致的规划及有效场景签名，旧的失败场景仍用下文的 `--recover-scene` 修复路径。开发回归服务器使用单独任务目录，避免干扰用户正在运行的任务。
+
+算法 0.14.0 的新教堂在二维规划阶段生成矩形主殿、方形钟楼和可选短翼，地块边界可以是三角形或不规则多边形。`architecturalRole` 随规划和适配器传入 Blender，直接决定主屋顶、钟楼上部和附楼素材的安装位置；不再根据狭长体量猜测钟楼。复用现有素材库，不增加或改写美术资源。独立校验同时检查源角色、矩形直角、最小宽度及钟楼正方形占地。旧 JSON 和旧场景保留原几何，并继续使用旧角色推断；重新生成地图后应用新布局。
+
 小镇素材已接入：新增 [61 个可编辑模块与独立 GLB](../../artifacts/small-town-assets/README.md)，覆盖小镇机器清单全部 11 类 P0/P1；网页和命令行现在默认使用素材库。[新素材小镇整城结果](../../artifacts/3d-small-town-assets/README.md)保留原 299 栋建筑、道路与墙线，附使用清单、实际几何验证、教堂和市场局部图。原样片作为历史对照保留。详见 [小镇素材文档](small-town-assets.md)。
 
 `render_sample_v2.py` 默认从 `artifacts/small-town-assets/small-town-asset-library.blend` 加载 Collection。`--asset-library` 可指定另一份符合清单的库，`--legacy-assets` 可使用程序组件做对照。`asset_integration.py` 负责角色、轮廓适配与避让，`verify_integrated_assets.py` 独立检查保存后的组件，`render_pipeline.py` 输出原生淡彩、结构线及可见遮挡；渲染助手也内嵌在新 `.blend` 文件中。
@@ -27,13 +83,17 @@ npm run sample:3d -- --input path/to/exported-town.json --output artifacts/my-ci
 
 原始 Farm/Park 地块以浅色地表表达；4 处 grove 保留源多边形，树木为带源 ID 的程序占位。农用建筑降低至一至二层，但仍缺专用农舍/仓棚构件；富裕住宅也仍用通用房屋模块。没有凭空新增田块、作物或水系。原规划只约束平面，楼层/屋顶/店铺是设计解释。
 
-管线会先构建已有 packages，再导出平面图、渲染三维并执行结构验证。可用 `--preview` 快速预览，`--resolution 3200` 设正式图分辨率，`--skip-build` 跳过已完成的包构建。Blender 可通过 `--blender` 或 `BLENDER_PATH` 指定；Windows 默认使用本机 Blender 5.2 安装路径。所有命令都不打开或修改用户正在编辑的 Blender 场景。
+管线会先构建已有 packages，再导出平面图、装配并保存三维场景，独立结构与素材校验通过后才渲染。可用 `--preview` 快速预览，`--resolution 3200` 设正式图分辨率，`--skip-build` 跳过已完成的包构建。Blender 可通过 `--blender` 或 `BLENDER_PATH` 指定；Windows 默认使用本机 Blender 5.2 安装路径。所有命令都不打开或修改用户正在编辑的 Blender 场景。
 
-三维适配覆盖无水地形、普通建筑、城墙、单个市场、grove/statue/fountain；水系与多个市场尚未实现，管线会明确停止而非静默漏画。现有核心生成器不做修改。直接生成和 JSON 导入的源 JSON、平面 SVG/PNG 已验证逐字节一致。
+大城市使用建筑及道路包围盒空间索引进行候选检索，避免每个门窗、木构件都遍历全城；精确碰撞判断保持不变。启用素材库时不再创建随后会被素材替换的临时木构、门窗和屋脊网格，但保留同一随机决策序列和建筑设计记录；原生墙壳、屋面及保留部件仍照常生成。屋顶按双精度规划边界裁切，凹多边形三角剖分保留原始双精度坐标，最终网格仍按严格占地限制检查。细长占地的质心校验额外记录其实际 float32 表示误差，边界和面积误差限制不放宽。
+
+若网页任务已保存 `.blend`，但在校验或渲染阶段失败，可在历史结果中选择「复用已保存场景重试」。该操作新建恢复任务，保留原始失败记录和规划快照，修复越界裁切屋顶后重新独立校验，通过才继续渲染。不会重新生成或删除建筑。命令行可使用 `--recover-scene artifacts/web-3d/<原任务ID>`，必须同时提供与旧场景完全一致的 `--input` 规划。仅有输入、尚未保存场景的任务需要正常重新生成。
+
+三维适配覆盖内陆与沿海地形、内陆单河和木平桥、河口与海岸组合、港口、普通建筑、城墙、多个市场及 grove/statue/fountain；各市场按来源 ID 记录占地、陈设与人物，并检查跨市场避让。现有核心生成器不做修改。直接生成和 JSON 导入的源 JSON、平面 SVG/PNG 已验证逐字节一致。
 
 ## 下一档：小镇 size=12
 
-城堡开启时，内部围墙也按源规划生成。城堡门口可能以显式入口点标记、相邻墙段仍为 active；三维在这些墙段上方保留过梁、下方留出通道，并按距入口的距离限制塔楼半径，避免实墙和塔楼封住入口。普通城墙的 inactive 缺口保持不变。城堡主体目前仍采用通用建筑占位，专用主堡、门楼等素材尚待补充；这不应阻断结构生成。
+城堡开启时，内部围墙也按源规划生成。算法 0.13.0 已在二维阶段写入实际门洞：城市门宽 8–20m，城堡门宽 6–12m，相邻城市门之间保留至少 8m 实墙；道路穿门处转为接近法向，并与门面保持至少 75° 夹角。三维直接复用门洞端点，门楼和附属件随同一门面定向。旧 JSON 中仍只有显式入口点的城堡继续使用兼容开洞逻辑。塔楼半径按距入口的距离限制，避免封住入口。城堡使用新增的石砌主堡、低坡屋顶、垛口和四角塔楼素材；专用城堡门楼、墙顶通道与附属房舍套件仍待补充。
 
 沿用 seed=7、城墙与广场开启、城堡关闭，选择界面中比“村落 size=6”大一级的“小镇 size=12”。独立输出，不覆盖上一档：
 
@@ -127,6 +187,8 @@ python experiments/3d-sample/draw-plan.py
 验证读入实际已保存的场景顶点，应用对象世界变换后除以 `horizontalScale`，逐栋比较落地轮廓与原规划。屋顶生成可以在原边上增加共线中点，因此不要求顶点个数和顺序相同。要求双向边界误差与重心误差均小于 `1e-4` 规划单位，面积差也需落在浮点计算容差内。
 
 还检查 35 栋建筑的 ID、街区 ID、数量与源 TownData 一致；城墙实心段仅落在原 activeSegments；城门中心离地 2.1 场景单位以内未被墙体堵塞；道路实际网格的中心线与宽度符合统一映射；市场轮廓保持一致。报告中保存源 JSON、manifest 和 `.blend` 的 SHA-256，便于确认验证对应的版本。
+
+平面道路覆盖检查读取实际保存网格的三角面，用双精度 XY 距离判断源节点和线段中点是否落在铺装上；高度、面朝向、源宽度和重叠面分别检查。避免 Blender BVH 最近点计算在细长三角面上引入额外单精度误差，原有位置阈值保持不变。每条道路的 `checks` 与 `coverage` 记录具体检查项、最大距离及失败采样点；该计算模块只使校验缓存失效，可复用已有场景。
 
 裁切只沿街区边界取出完整建筑，并增加东南侧原有空地以纳入城墙。道路和墙使用精确线段/裁切多边形相交。墙是开放链：`closed:false`，`activeSegments.length=points.length-1`；不能把末尾自动接回起点。
 
