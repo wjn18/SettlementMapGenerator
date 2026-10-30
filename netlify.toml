@@ -1,0 +1,6 @@
+[build]
+  command = "npm run build"
+  publish = "apps/playground/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
