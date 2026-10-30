@@ -6,9 +6,11 @@ import ScaleModule from 'openfl/lib/openfl/display/LineScaleMode';
 import OpenGLModule from 'openfl/lib/openfl/display/OpenGLRenderer';
 import BitmapModule from 'openfl/lib/openfl/display/Bitmap';
 import BitmapDataModule from 'openfl/lib/openfl/display/BitmapData';
+import MatrixModule from 'openfl/lib/openfl/geom/Matrix';
 // OpenFL's CJS default can be wrapped twice by Vite; normalize at the boundary.
 function unwrap<T>(module: T): T { return (module as { default?: T }).default ?? module; }
 export const Stage = unwrap(StageModule), Sprite = unwrap(SpriteModule);
 export const OpenGLRenderer = unwrap(OpenGLModule);
 export const Bitmap = unwrap(BitmapModule), BitmapData = unwrap(BitmapDataModule);
+export const Matrix = unwrap(MatrixModule);
 export const CapsStyle = unwrap(CapsModule), JointStyle = unwrap(JointsModule), LineScaleMode = unwrap(ScaleModule);

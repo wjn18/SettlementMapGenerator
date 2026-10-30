@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont, LABEL_FONT, layoutCartography, paperTexturePixels } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, LABEL_FONT, layoutCartography, paperTexturePixels, landmarkBitmap } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface SVGRenderer extends MapRenderer { exportSVG(): string }
 const namespace='http://www.w3.org/2000/svg';
@@ -13,6 +13,16 @@ export function createSVGRenderer(container: HTMLElement): SVGRenderer {
   svg.style.display='block';svg.append(definitions,background,group,cartographyGroup,labelGroup);container.append(svg);
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),disposed=false;
   let scene:MapScene|null=null,viewport:Viewport={centerX:0,centerY:0,zoom:1};
+  const landmarkImages=new Map<string,string>();
+  function landmarkImage(icon:Parameters<typeof landmarkBitmap>[0],color:string,halo:string):string {
+    const key=`${icon}/${color}/${halo}`,cached=landmarkImages.get(key);if(cached)return cached;
+    const bitmap=landmarkBitmap(icon,color,halo),tile=document.createElement('canvas');tile.width=bitmap.width;tile.height=bitmap.height;
+    const context=tile.getContext('2d');if(!context)throw new Error('Canvas 2D is unavailable');
+    const pixels=context.createImageData(bitmap.width,bitmap.height);pixels.data.set(bitmap.pixels);context.putImageData(pixels,0,0);
+    const uri=tile.toDataURL('image/png');tile.width=tile.height=0;
+    if(landmarkImages.size>=64)landmarkImages.delete(landmarkImages.keys().next().value!);
+    landmarkImages.set(key,uri);return uri;
+  }
   const alive=()=>{if(disposed)throw new Error('Renderer has been disposed');};
   function drawLabels(): void {
     labelGroup.replaceChildren(); cartographyGroup.replaceChildren(); if (!scene) return;
@@ -77,6 +87,14 @@ export function createSVGRenderer(container: HTMLElement): SVGRenderer {
       }
       const fragment=document.createDocumentFragment();
       for(const command of value.commands){
+        if(command.kind==='image'){
+          const node=document.createElementNS(namespace,'image'),title=document.createElementNS(namespace,'title');
+          node.setAttribute('href',landmarkImage(command.icon,command.color,command.halo));
+          node.setAttribute('x',String(command.center.x-command.width/2));node.setAttribute('y',String(command.center.y-command.height/2));
+          node.setAttribute('width',String(command.width));node.setAttribute('height',String(command.height));node.setAttribute('preserveAspectRatio','none');
+          node.setAttribute('data-landmark-icon',command.icon);node.setAttribute('role','img');node.setAttribute('aria-label',command.label);
+          title.textContent=command.label;node.append(title);fragment.append(node);continue;
+        }
         const node=document.createElementNS(namespace,command.kind==='circle'?'circle':'path');
         if(command.kind==='circle'){node.setAttribute('cx',String(command.center.x));node.setAttribute('cy',String(command.center.y));node.setAttribute('r',String(command.radius));}
         else {
@@ -95,6 +113,6 @@ export function createSVGRenderer(container: HTMLElement): SVGRenderer {
     resize,
     pick(x,y){alive();return pickScene(scene,viewport,width,height,x,y);},
     exportSVG(){alive();return '<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(svg);},
-    dispose(){if(disposed)return;disposed=true;scene=null;svg.replaceChildren();svg.remove();},
+    dispose(){if(disposed)return;disposed=true;scene=null;landmarkImages.clear();definitions.replaceChildren();svg.replaceChildren();svg.remove();},
   };
 }

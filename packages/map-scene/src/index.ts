@@ -9,6 +9,9 @@ import { createCartography } from './cartography.js';
 import type { CartographyOptions, MapCartography } from './cartography.js';
 import { createIllustration } from './illustration.js';
 import type { Landmark, PaperTexture } from './illustration.js';
+import type { LandmarkKind } from './landmark-images.js';
+export { landmarkBitmap } from './landmark-images.js';
+export type { LandmarkKind, LandmarkBitmap } from './landmark-images.js';
 export type { Landmark, PaperTexture } from './illustration.js';
 export { paperTexturePixels } from './illustration.js';
 export { layoutCartography, formatMapDistance } from './cartography.js';
@@ -21,7 +24,8 @@ export interface Stroke { color: string; width: number; units: 'world' | 'screen
 export type DrawCommand =
   | { kind: 'polygon'; points: Point2[]; fill?: string; stroke?: Stroke }
   | { kind: 'polyline'; points: Point2[]; stroke: Stroke }
-  | { kind: 'circle'; center: Point2; radius: number; fill?: string; stroke?: Stroke };
+  | { kind: 'circle'; center: Point2; radius: number; fill?: string; stroke?: Stroke }
+  | { kind: 'image'; icon: LandmarkKind; label: string; center: Point2; width: number; height: number; color: string; halo: string; stroke?: never };
 export interface MapScene { bounds: Bounds; background: string; commands: DrawCommand[]; hitRegions: { entityId: Id; points: Point2[] }[]; river?: River; terrain?: Terrain; labels?: MapLabel[]; cartography?: MapCartography; landmarks?: Landmark[]; paperTexture?: PaperTexture; illustration?: { trees: number; fields: number; waves: number; boats: number; piers: number } }
 export interface Viewport { centerX: number; centerY: number; zoom: number }
 /** CSS-pixel input and world-coordinate viewport; no rendering runtime types. */

@@ -13,7 +13,7 @@ export interface MapCartography {
   grid: boolean; scale: boolean; compass: boolean;
   gridSize: number | 'auto'; metersPerUnit: number; ink: string; paper: string;
 }
-export type ScreenCommand = (DrawCommand | {
+export type ScreenCommand = (Exclude<DrawCommand, { kind: 'image' }> | {
   kind: 'text'; text: string; position: Point2; fontSize: number;
   fill: string; align: 'left' | 'center' | 'right';
 }) & { opacity?: number };

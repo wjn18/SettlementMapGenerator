@@ -26,7 +26,7 @@ test('illustrated cartography is deterministic and leaves planning, JSON, geomet
   assert(scene.commands.length>plain.commands.length+2000);
   for(const kind of ['trees','fields','waves','boats','piers'])assert(scene.illustration[kind]>0,kind+' is drawn');
   for(const command of scene.commands){
-    const points=command.kind==='circle'?[command.center]:command.points;
+    const points=command.kind==='circle'||command.kind==='image'?[command.center]:command.points;
     assert(points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
     if(command.stroke)assert(command.stroke.width>0);
   }

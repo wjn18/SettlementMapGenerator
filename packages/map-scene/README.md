@@ -24,7 +24,7 @@ const viewport = fitViewport(scene.bounds, 800, 800, 32);
 
 街区分色：`buildMapScene(town, theme, { districtColors: true })` 根据 `wardType` 分配颜色，工匠区陶土橙、平民区灰橄榄、城堡紫、商人区青绿、行政区蓝等。颜色由 `districtColor(theme, wardType)` 统一计算，同类街区保持同一色系，主题纸色参与少量混色。建筑只做小幅明暗变化，避免随机色相掩盖用途；街区地面铺淡色，使空广场和城堡院落也能区分。原始几何、种子、命中区域不变，三种渲染器与导出共享分色后的场景。调用库时默认关闭以保持兼容；主页面和比较页默认开启，可通过「街区分色」开关或 `districts=false` 关闭。图例只展示地图实际包含的类型，色块使用同一颜色函数；图例属于页面 UI，不包含在地图图片导出中。
 
-`DrawCommand` 支持 polygon、polyline、circle；`Stroke` 显式保存颜色、宽度、world/screen 单位、端帽、连接和 miterLimit。`pointInRing(points, point)` 提供边界算内部的命中判断。`fitViewport(bounds, width, height, padding)` 返回 CSS 像素视口；DPR 属于绘制适配器。
+`DrawCommand` 支持 polygon、polyline、circle 和 image；image 用于透明建筑图片，保存图标名称、中心、尺寸、主题深浅色及可读标签。教堂、城堡和集市使用真实图片素材，原图、提示词及打包说明见 [assets/landmarks](assets/landmarks/README.md)。`landmarkBitmap(icon, color, halo)` 同步返回已着色的 RGBA 像素，三种绘制器及导出均无需等待图片加载。`Stroke` 显式保存颜色、宽度、world/screen 单位、端帽、连接和 miterLimit。`pointInRing(points, point)` 提供边界算内部的命中判断。`fitViewport(bounds, width, height, padding)` 返回 CSS 像素视口；DPR 属于绘制适配器。
 
 地形算法 0.6.0 的海面与变宽河流使用真实多边形绘制；沿岸道路、桥面、港口栈桥进入同一组绘制指令，PNG/SVG 导出包含这些元素。旧河流 JSON 没有 `surface` 时仍按中心线和宽度绘制。场景独立复制 `terrain` 与 `river`，海面不命中街区，码头命中所属港区，桥面命中相邻岸边街区。港口仓储区提供独立的分区颜色与中文图例。
 

@@ -2,9 +2,10 @@ import type { TownData, Point2, Bounds } from '@settlement/core';
 import type { DrawCommand, Stroke } from './index.js';
 import { mixColor, waterColor as themeWaterColor } from './themes.js';
 import type { MapTheme } from './themes.js';
+import type { LandmarkKind } from './landmark-images.js';
 
 export interface Landmark {
-  districtId: string; kind: 'church'|'castle'|'market'; center: Point2; radius: number; label: string;
+  districtId: string; kind: LandmarkKind; center: Point2; radius: number; label: string;
 }
 export interface PaperTexture { seed: number; color: string }
 /** A small repeating paper tile; identical bytes in every browser renderer. */
@@ -251,12 +252,9 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
     if(!inside(shape,p)||waterAt(p))continue;
     const r=Math.min(unit*3,Math.sqrt(area(shape))*.2);if(r<unit*.7)continue;
     const kind=district.wardType==='Cathedral'?'church':district.wardType==='Castle'?'castle':'market';
-    result.landmarks.push({districtId:district.id,kind,center:p,radius:r*1.4,label:kind==='church'?'教堂':kind==='castle'?'城堡':'集市广场'});
-    const at=(x:number,y:number)=>({x:p.x+x*r,y:p.y+y*r});
-    const icon=(points:Point2[])=>{line(result.symbols,points,palette.light,unit*.65);line(result.symbols,points,palette.dark,unit*.23);};
-    if(kind==='church'){icon([at(0,-.95),at(0,.9)]);icon([at(-.52,-.28),at(.52,-.28)]);}
-    else if(kind==='castle'){icon([at(-.72,.65),at(-.72,-.5),at(-.4,-.5),at(-.4,-.8),at(-.1,-.8),at(-.1,-.5),at(.2,-.5),at(.2,-.8),at(.55,-.8),at(.55,.65),at(-.72,.65)]);icon([at(-.05,.65),at(-.05,.06),at(.15,.06),at(.15,.65)]);}
-    else{icon([at(-.8,.55),at(-.8,-.14),at(.8,-.14),at(.8,.55)]);icon([at(-.95,-.14),at(-.65,-.65),at(.65,-.65),at(.95,-.14)]);icon([at(-1,.6),at(1,.6)]);}
+    const size=Math.max(unit*8,Math.min(unit*12,r*3.8)),label=kind==='church'?'教堂':kind==='castle'?'城堡':'集市广场';
+    result.landmarks.push({districtId:district.id,kind,center:p,radius:size*.5,label});
+    result.symbols.push({kind:'image',icon:kind,label,center:{...p},width:size,height:size,color:palette.dark,halo:palette.light});
   }
   return result;
 }

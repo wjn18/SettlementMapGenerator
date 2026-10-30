@@ -1,4 +1,4 @@
-import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT, paperTexturePixels } from '@settlement/map-scene';
+import { pickScene, layoutMapLabels, labelFont, layoutCartography, LABEL_FONT, paperTexturePixels, landmarkBitmap } from '@settlement/map-scene';
 import type { MapScene, MapRenderer, Viewport } from '@settlement/map-scene';
 export interface CanvasRenderer extends MapRenderer { exportPNG(): Promise<Blob> }
 export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
@@ -8,6 +8,15 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
   let width=Math.max(1,container.clientWidth),height=Math.max(1,container.clientHeight),dpr=1,disposed=false;
   let scene: MapScene|null=null,viewport: Viewport={centerX:0,centerY:0,zoom:1};
   let paperKey='',paperPattern:CanvasPattern|null=null;
+  const landmarkTiles=new Map<string,HTMLCanvasElement>();
+  function landmarkTile(icon:Parameters<typeof landmarkBitmap>[0],color:string,halo:string):HTMLCanvasElement {
+    const key=`${icon}/${color}/${halo}`,cached=landmarkTiles.get(key);if(cached)return cached;
+    const bitmap=landmarkBitmap(icon,color,halo),tile=document.createElement('canvas');tile.width=bitmap.width;tile.height=bitmap.height;
+    const context=tile.getContext('2d');if(!context)throw new Error('Canvas 2D is unavailable');
+    const pixels=context.createImageData(bitmap.width,bitmap.height);pixels.data.set(bitmap.pixels);context.putImageData(pixels,0,0);
+    if(landmarkTiles.size>=64){const oldest=landmarkTiles.keys().next().value!;const old=landmarkTiles.get(oldest)!;old.width=old.height=0;landmarkTiles.delete(oldest);}
+    landmarkTiles.set(key,tile);return tile;
+  }
   function preparePaper():void {
     const key=scene?.paperTexture?`${scene.paperTexture.seed}/${scene.paperTexture.color}`:'';
     if(key===paperKey)return;paperKey=key;paperPattern=null;
@@ -47,6 +56,11 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=paperPattern??scene.background;ctx.fillRect(0,0,width,height);
     ctx.setTransform(dpr*viewport.zoom,0,0,dpr*viewport.zoom,dpr*(width/2-viewport.centerX*viewport.zoom),dpr*(height/2-viewport.centerY*viewport.zoom));
     for(const command of scene.commands) {
+      if(command.kind==='image'){
+        ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+        ctx.drawImage(landmarkTile(command.icon,command.color,command.halo),command.center.x-command.width/2,command.center.y-command.height/2,command.width,command.height);
+        continue;
+      }
       ctx.beginPath();
       if(command.kind==='circle')ctx.arc(command.center.x,command.center.y,command.radius,0,Math.PI*2);
       else {
@@ -83,6 +97,6 @@ export function createCanvasRenderer(container: HTMLElement): CanvasRenderer {
     resize,
     pick(x,y){alive();return pickScene(scene,viewport,width,height,x,y);},
     exportPNG(){alive();return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG encoding failed')),'image/png'));},
-    dispose(){if(disposed)return;disposed=true;scene=null;canvas.remove();canvas.width=canvas.height=0;},
+    dispose(){if(disposed)return;disposed=true;scene=null;paperPattern=null;for(const tile of landmarkTiles.values())tile.width=tile.height=0;landmarkTiles.clear();canvas.remove();canvas.width=canvas.height=0;},
   };
 }
