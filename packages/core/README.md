@@ -33,7 +33,9 @@ console.log(restored.districts.length, restored.buildings.length);
 
 `TownData.river` 保存 `centerline`、参考 `width`、`bankWidth`、`bridges` 和实际水面多边形 `surface`（旧地图可以省略 surface）。`TownData.terrain.coast` 保存最终海岸方向、岸线和海面多边形；`waterfronts` 引用沿岸道路；`docks` 保存港区 ID、连接道路 ID、路径和宽度。所有几何使用世界坐标，不泄露内部 Point 对象。新版主路宽 15.2 m、连接道路与沿岸道路至少 10.4 m、普通街道 5.6 m；桥面比对应道路宽 2 m。新增 `Harbor` 街区类型。数据格式仍为 `1`，新增字段是可选的，新版可无损导入旧地图；旧版严格校验器不支持新增字段。JSON 保存实际几何，无须重生成。`generateTownSteps` 在道路/建筑之前产出 `terrain` 阶段。河流生成算法已变化，要保留旧版河流布局请导入原始 JSON。
 
-`generateTownSteps(options)` 返回生成器，每完成一个阶段产出 `{ attempt, stage }`，最终返回与 `generateTown` 相同的结果。使用 `.next()` 的 `done/value` 读取最终结果；`for...of` 只读取进度。可交错推进不同实例，调用 `.return()` 放弃生成。单个阶段仍同步执行，需避免长任务阻塞界面时由应用放入 Worker。
+`generateTownSteps(options)` 返回生成器，每完成一个阶段产出 `{ attempt, stage }`，最终返回与 `generateTown` 相同的结果。使用 `.next()` 的 `done/value` 读取最终结果；`for...of` 只读取进度。可交错推进不同实例，调用 `.return()` 放弃生成。单个阶段仍同步执行，需避免长任务阻塞界面时由应用放入 Worker。网页 Worker 会转发真实阶段进度，并分别限制无进度等待与总耗时。
+
+河港规划在每次调用内缓存候选码头、船体、航道的轮廓及包围盒，先排除明显分离的轮廓，再运行原有精确碰撞判定；接触容差保持保守。缓存不跨规划调用，避免导出坐标缩放或外部修改后复用过期数据。候选顺序、重试次数、随机序列与最终几何保持不变；回归测试覆盖原精确判定及 100 地块地图的完整 JSON 哈希。
 
 ```ts
 import { generateTownSteps } from '@settlement/core';

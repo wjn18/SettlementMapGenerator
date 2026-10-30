@@ -25,10 +25,28 @@ function withinBank(ring: Point2[], river: River): boolean {
   const water = river.surface!, boundary = [...water, water[0]];
   return edges(ring).every(([a, b]) => Array.from({ length: 17 }, (_, i) => mixPoint(a, b, i / 16)).every(p => inRing(water, p) || distanceToPath(p, boundary) <= river.bankWidth));
 }
-export function harborOverlap(a: Point2[], b: Point2[], margin = 0): boolean {
+interface RingBounds { minX: number; minY: number; maxX: number; maxY: number }
+function ringBounds(ring: Point2[]): RingBounds {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of ring) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }
+  return { minX, minY, maxX, maxY };
+}
+function separated(a: RingBounds, b: RingBounds, margin: number): boolean {
+  // intersection() accepts endpoint parameters up to 1e-9 outside an edge.
+  // Retain those near contacts for the exact predicates, including roundoff.
+  const tolerance = 1e-7 + 1e-9 * (a.maxX - a.minX + a.maxY - a.minY + b.maxX - b.minX + b.maxY - b.minY);
+  const padding = Math.max(0, margin) + tolerance;
+  return a.maxX + padding < b.minX || b.maxX + padding < a.minX || a.maxY + padding < b.minY || b.maxY + padding < a.minY;
+}
+function overlapRings(a: Point2[], b: Point2[], margin: number): boolean {
   if (a.some(p => inRing(b, p)) || b.some(p => inRing(a, p))) return true;
-  if (edges(a).some(([p, q]) => edges(b).some(([r, s]) => intersection(p, q, r, s)))) return true;
-  return a.some(p => distanceToPath(p, [...b, b[0]]) <= margin) || b.some(p => distanceToPath(p, [...a, a[0]]) <= margin);
+  const aEdges = edges(a), bEdges = edges(b);
+  if (aEdges.some(([p, q]) => bEdges.some(([r, s]) => intersection(p, q, r, s)))) return true;
+  const aBoundary = [...a, a[0]], bBoundary = [...b, b[0]];
+  return a.some(p => distanceToPath(p, bBoundary) <= margin) || b.some(p => distanceToPath(p, aBoundary) <= margin);
+}
+export function harborOverlap(a: Point2[], b: Point2[], margin = 0): boolean {
+  return !separated(ringBounds(a), ringBounds(b), margin) && overlapRings(a, b, margin);
 }
 function project(p: Point2, path: Point2[]): { point: Point2; station: number } {
   let result = { point: path[0], station: 0 }, best = Infinity;
@@ -49,6 +67,15 @@ export interface RiverHarborCandidate { shoreIndex: number; points: Point2[]; wi
  * outside bridge footprints; static arches do not imply simulated navigation. */
 export function planRiverHarbors(river: River, shores: { path: Point2[]; eligible: boolean }[], bridges: Point2[][], sea: Point2[] | undefined, count: number, protectedLand: Point2[][] = []): RiverHarborCandidate[] {
   const water = river.surface!, center = river.centerline;
+  // These rings are immutable for this planning call. Keep the cache local:
+  // exported town coordinates are subsequently scaled in place.
+  const bounds = new WeakMap<Point2[], RingBounds>();
+  const boundsOf = (ring: Point2[]): RingBounds => {
+    let result = bounds.get(ring);
+    if (!result) { result = ringBounds(ring); bounds.set(ring, result); }
+    return result;
+  };
+  const overlaps = (a: Point2[], b: Point2[], margin = 0): boolean => !separated(boundsOf(a), boundsOf(b), margin) && overlapRings(a, b, margin);
   const barriers = bridges.flatMap(path => path.map(p => project(p, center).station));
   const first = Math.min(...barriers), last = Math.max(...barriers);
   const obstacles = bridges.flatMap(points => dockFootprints({ points, width: 6 }));
@@ -92,15 +119,15 @@ export function planRiverHarbors(river: River, shores: { path: Point2[]; eligibl
           const points = [start, elbow, end], footprint = berthFootprint(berth), deck = dockFootprints({ points, width });
           const navigable = dockFootprints({ points: route, width: navigation.width });
           if (!harborInside(footprint, water) || !withinBank(deck[1], river)) continue;
-          if (sea && [footprint, ...deck].some(r => harborOverlap(r, sea, .6))) continue;
-          if ([footprint, ...deck, ...navigable].some(r => obstacles.some(o => harborOverlap(r, o, .5)))) continue;
-          if (navigable.some(r => !harborInside(r, water) || deck.some(d => harborOverlap(r, d, .1)))) continue;
+          if (sea && [footprint, ...deck].some(r => overlaps(r, sea, .6))) continue;
+          if ([footprint, ...deck, ...navigable].some(r => obstacles.some(o => overlaps(r, o, .5)))) continue;
+          if (navigable.some(r => !harborInside(r, water) || deck.some(d => overlaps(r, d, .1)))) continue;
           // Keep the longitudinal channel clear, including the other bank.
           if (!channels.has(navigation.width)) channels.set(navigation.width, center.slice(1).map((p, i) => harborRectangle(center[i], p, navigation.width)));
           const channel = channels.get(navigation.width)!;
-          if ([footprint, ...deck].some(r => channel.some(q => harborOverlap(r, q, .15)))) continue;
+          if ([footprint, ...deck].some(r => channel.some(q => overlaps(r, q, .15)))) continue;
           const yard = harborRectangle(add(start, u, -2.8), add(start, u, 2.8), 6.4).map(p => add(p, n, -2.9));
-          if (protectedLand.some(p => harborOverlap(p, yard))) continue;
+          if (protectedLand.some(p => overlaps(p, yard))) continue;
           candidates.push({ shoreIndex, points, width, riverHarbor: { version: 1, layout: 'along-bank', berth, yard, navigation }, score: (sea && exit === 'end' ? -10000 : 0) + (vessel.boat === 'cargo' ? (7.2 - vessel.length) * 5000 : 0) + dist(start, { x: 0, y: 0 }) });
         }
       }
@@ -108,11 +135,22 @@ export function planRiverHarbors(river: River, shores: { path: Point2[]; eligibl
   });
   candidates.sort((a, b) => a.score - b.score);
   const chosen: RiverHarborCandidate[] = [];
+  const footprints = new Map<RiverHarborCandidate, { occupied: Point2[][]; access: Point2[][]; navigation: Point2[][] }>();
+  const footprintsOf = (candidate: RiverHarborCandidate) => {
+    let result = footprints.get(candidate);
+    if (!result) {
+      const occupied = [...dockFootprints(candidate), berthFootprint(candidate.riverHarbor.berth)];
+      result = { occupied, access: [...occupied, candidate.riverHarbor.yard], navigation: dockFootprints({ points: candidate.riverHarbor.navigation.points, width: candidate.riverHarbor.navigation.width }) };
+      footprints.set(candidate, result);
+    }
+    return result;
+  };
   const compatible = (candidate: RiverHarborCandidate, other: RiverHarborCandidate): boolean => {
-    const footprint = [...dockFootprints(candidate), berthFootprint(candidate.riverHarbor.berth), candidate.riverHarbor.yard];
-    return !(dist(candidate.points[0], other.points[0]) < 14 || footprint.some(r => [...dockFootprints(other), berthFootprint(other.riverHarbor.berth)].some(q => harborOverlap(r, q, 1)))
-      || dockFootprints({ points: other.riverHarbor.navigation.points, width: other.riverHarbor.navigation.width }).some(q => footprint.some(r => harborOverlap(r, q, .1)))
-      || dockFootprints({ points: candidate.riverHarbor.navigation.points, width: candidate.riverHarbor.navigation.width }).some(q => [...dockFootprints(other), berthFootprint(other.riverHarbor.berth)].some(r => harborOverlap(r, q, .1))));
+    if (dist(candidate.points[0], other.points[0]) < 14) return false;
+    const a = footprintsOf(candidate), b = footprintsOf(other);
+    return !(a.access.some(r => b.occupied.some(q => overlaps(r, q, 1)))
+      || b.navigation.some(q => a.access.some(r => overlaps(r, q, .1)))
+      || a.navigation.some(q => b.occupied.some(r => overlaps(r, q, .1))));
   };
   // A port starts as a verified mixed pair, then expands when space permits.
   for (const cargo of candidates.filter(c => c.riverHarbor.berth.boat === 'cargo')) {
