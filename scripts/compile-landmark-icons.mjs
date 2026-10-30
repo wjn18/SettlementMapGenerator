@@ -19,7 +19,7 @@ for(const icon of ['church','castle','market']){
   const cx=(minX+maxX+1)/2,cy=(minY+maxY+1)/2;
   const alpha=new Uint8Array(size*size),ink=new Uint8Array(size*size);
   // Area-average the source art into an atlas tile; retain transparency and
-  // the original light/dark engraving, rather than redrawing its silhouette.
+  // the original pen marks, rather than redrawing their silhouette.
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
     const x0=cx+(x-size/2)*scale,x1=x0+scale,y0=cy+(y-size/2)*scale,y1=y0+scale;
     let covered=0,dark=0;

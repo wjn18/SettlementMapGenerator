@@ -16,10 +16,18 @@ test('building icon sources are distinct transparent raster artwork',()=>{
     const bytes=readFileSync(new URL(`../../packages/map-scene/assets/landmarks/${icon}.png`,import.meta.url));
     hashes.add(createHash('sha256').update(bytes).digest('hex'));
     const png=PNG.sync.read(bytes);assert(png.width>=64&&png.height>=64,icon+' has usable source resolution');
-    let transparent=0,drawn=0;
-    for(let i=0;i<png.data.length;i+=4){if(png.data[i+3]===0)transparent++;if(png.data[i+3]>0)drawn++;}
+    let transparent=0,alphaMass=0,minX=png.width,minY=png.height,maxX=-1,maxY=-1;
+    for(let i=0;i<png.data.length;i+=4){
+      const alpha=png.data[i+3];if(alpha===0)transparent++;alphaMass+=alpha/255;
+      if(alpha>12){
+        const x=(i/4)%png.width,y=Math.floor(i/4/png.width);
+        minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+      }
+    }
     assert(transparent>png.width*png.height*.05,icon+' must retain a transparent background');
-    assert(drawn>png.width*png.height*.01,icon+' must contain visible artwork');
+    // Sparse marks can have generous padding; measure the artwork itself.
+    assert(alphaMass>=64,icon+' must contain usable visible strokes');
+    assert(maxX-minX+1>=32&&maxY-minY+1>=32,icon+' has usable artwork bounds');
   }
   assert.equal(hashes.size,kinds.length,'each building type has its own image');
 });

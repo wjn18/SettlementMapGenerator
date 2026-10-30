@@ -252,7 +252,8 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
     if(!inside(shape,p)||waterAt(p))continue;
     const r=Math.min(unit*3,Math.sqrt(area(shape))*.2);if(r<unit*.7)continue;
     const kind=district.wardType==='Cathedral'?'church':district.wardType==='Castle'?'castle':'market';
-    const size=Math.max(unit*8,Math.min(unit*12,r*3.8)),label=kind==='church'?'教堂':kind==='castle'?'城堡':'集市广场';
+    // Small building marks remain secondary to the map at the fitted town scale.
+    const size=Math.max(unit*5.5,Math.min(unit*7,r*2.4)),label=kind==='church'?'教堂':kind==='castle'?'城堡':'集市广场';
     result.landmarks.push({districtId:district.id,kind,center:p,radius:size*.5,label});
     result.symbols.push({kind:'image',icon:kind,label,center:{...p},width:size,height:size,color:palette.dark,halo:palette.light});
   }
