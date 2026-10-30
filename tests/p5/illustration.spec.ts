@@ -33,8 +33,29 @@ test('illustrated water, woods, farmland, piers and landmark symbols survive ren
     }else expect(PNG.sync.read(bytes).width).toBeGreaterThan(1000);
   }
   const before=await page.locator('#map canvas').screenshot();
-  await page.locator('#theme').selectOption('parchment');
+  await page.locator('#theme').selectOption('blueprint');
   expect(await page.evaluate(()=>JSON.stringify((window as any).__playground.town))).toBe(original);
   const after=await page.locator('#map canvas').screenshot();expect(Buffer.compare(before,after)).not.toBe(0);
   expect(errors).toEqual([]);
+});
+
+test('all twelve papers include fine detail and old parchment links select the retained paper',async({page},info)=>{
+  await page.goto('/?test=1&seed=12345&size=24&coast=east&river=true&harbor=true&castle=true&plaza=true&walls=true&theme=parchment&grid=false&labels=false');
+  await expect(page.locator('body')).toHaveAttribute('data-ready','true');
+  await expect(page.locator('#theme')).toHaveValue('illustrated');
+  await expect(page.locator('#theme option')).toHaveCount(12);
+  await expect(page.locator('#theme option[value="parchment"]')).toHaveCount(0);
+  const before=await page.evaluate(()=>{const a=(window as any).__playground;return{town:JSON.stringify(a.town),generation:a.generationCount,details:a.scene.illustration,landmarks:a.scene.landmarks};});
+  const themes=await page.locator('#theme option').evaluateAll(nodes=>nodes.map(node=>(node as HTMLOptionElement).value));
+  for(const theme of themes){
+    await page.locator('#theme').selectOption(theme);
+    const state=await page.evaluate(()=>{const a=(window as any).__playground;return{town:JSON.stringify(a.town),generation:a.generationCount,details:a.scene.illustration,landmarks:a.scene.landmarks};});
+    expect(state).toEqual(before);
+    if(['illustrated','blueprint','monochrome','modern'].includes(theme))await page.locator('#map').screenshot({path:`artifacts/all-paper-details/${info.project.name}-${theme}.png`});
+  }
+  await page.goto('/compare.html?test=1&theme=parchment&bench=canvas');
+  await expect(page.locator('body')).toHaveAttribute('data-ready','true');
+  await expect(page.locator('#theme')).toHaveValue('illustrated');
+  await expect(page.locator('#theme option')).toHaveCount(12);
+  expect(await page.evaluate(()=>(window as any).__comparison.scene.illustration.trees)).toBeGreaterThan(0);
 });

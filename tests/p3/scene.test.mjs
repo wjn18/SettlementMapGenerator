@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto';
 import { buildMapScene, THEMES, pointInRing, fitViewport } from '../../packages/map-scene/dist/index.js';
 import { serializeTown } from '../../packages/core/dist/index.js';
 import { legacyTown } from './legacy-town.mjs';
+const legacyPaper={paper:'#ccc5b8',light:'#99948a',medium:'#67635c',dark:'#1a1917',normalStroke:.3,thickStroke:1.8};
 
 for (const [seed, size] of [[42, 15], [1, 6], [12345, 24], [30000, 40]]) test(`immutable scene and legacy drawing layers ${seed}/${size}`, () => {
   const { town } = legacyTown(seed, size), before = serializeTown(town);
-  const scene = buildMapScene(town), repeat = buildMapScene(town);
+  const scene = buildMapScene(town,legacyPaper,{illustration:false}), repeat = buildMapScene(town,legacyPaper,{illustration:false});
   assert.deepEqual(scene, repeat); assert.equal(serializeTown(town), before);
   assert.equal(scene.hitRegions.length, town.districts.length);
   const external = town.roads.filter(r => r.kind === 'external');
@@ -18,7 +19,7 @@ for (const [seed, size] of [[42, 15], [1, 6], [12345, 24], [30000, 40]]) test(`i
   }
   const towers = scene.commands.filter(c => c.kind === 'circle');
   assert.equal(towers.length, town.walls.reduce((n, w) => n + w.towerVertexIds.length, 0));
-  const tinted = buildMapScene(town, THEMES.blueprint); assert.equal(tinted.background, '#455b8d'); assert.equal(tinted.commands.length, scene.commands.length);
+  const tinted = buildMapScene(town, THEMES.blueprint,{illustration:false}); assert.equal(tinted.background, '#455b8d'); assert.equal(tinted.commands.length, scene.commands.length);
   scene.hitRegions[0].points[0].x += 100;
   assert.equal(serializeTown(town), before);
 });
@@ -26,7 +27,7 @@ test('world containment, viewport fit and theme validation', () => {
   const points = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }];
   assert.ok(pointInRing(points, { x: 5, y: 5 })); assert.ok(pointInRing(points, { x: 0, y: 5 })); assert.equal(pointInRing(points, { x: -1, y: 5 }), false);
   assert.deepEqual(fitViewport({ minX: 0, minY: 0, maxX: 100, maxY: 100 }, 300, 200, 0), { centerX: 50, centerY: 50, zoom: 2 });
-  assert.throws(() => buildMapScene(legacyTown(42, 15).town, { ...THEMES.parchment, dark: 'red' }));
+  assert.throws(() => buildMapScene(legacyTown(42, 15).town, { ...THEMES.illustrated, dark: 'red' }));
 });
 test('reviewed screenshot fixture hashes remain intact', () => {
   const directory = new URL('../fixtures/p3/', import.meta.url);

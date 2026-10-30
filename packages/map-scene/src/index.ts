@@ -1,7 +1,7 @@
 // Drawing order and palettes ported from watabou/TownGeneratorOS mapping (GPL-3.0).
 import { validateTown, distanceToPath, berthFootprint } from '@settlement/core';
 import type { TownData, Point2, Bounds, Id, River, Terrain } from '@settlement/core';
-import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoofColor } from './themes.js';
+import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoofColor, waterColor } from './themes.js';
 import type { MapTheme } from './themes.js';
 import { buildMapLabels } from './labels.js';
 import type { MapLabel } from './labels.js';
@@ -15,7 +15,7 @@ export { layoutCartography, formatMapDistance } from './cartography.js';
 export type { CartographyOptions, MapCartography, CartographyLayer, ScreenCommand } from './cartography.js';
 export { layoutMapLabels, labelFont, LABEL_FONT } from './labels.js';
 export type { MapLabel, PlacedLabel, LabelGlyph } from './labels.js';
-export { THEMES, THEME_LABELS, themeFromCityPalette, DISTRICT_STYLES, districtColor } from './themes.js';
+export { THEMES, THEME_LABELS, themeFromCityPalette, DISTRICT_STYLES, districtColor, normalizeThemeName } from './themes.js';
 export type { MapTheme } from './themes.js';
 export interface Stroke { color: string; width: number; units: 'world' | 'screen'; cap: 'butt' | 'round' | 'square'; join: 'miter' | 'round' | 'bevel'; miterLimit: number }
 export type DrawCommand =
@@ -47,14 +47,14 @@ export function pickScene(scene: MapScene | null, viewport: Viewport, width: num
   return null;
 }
 export interface SceneOptions { districtColors?: boolean; labels?: boolean; cartography?: CartographyOptions; illustration?: boolean }
-export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchment, options: SceneOptions = {}): MapScene {
+export function buildMapScene(town: TownData, palette: MapTheme = THEMES.illustrated, options: SceneOptions = {}): MapScene {
   validateTown(town);
   validateTheme(palette);
   // The road-first layout exports metre coordinates at four times its planning
   // scale. Keep outline and wall symbols consistent with its building sizes.
   const version=Number(town.generatorVersion.match(/^0\.(\d+)\./)?.[1]??0);
   if (version>=8) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
-  const illustration=(options.illustration??palette.illustration)?createIllustration(town,palette):undefined;
+  const illustration=options.illustration!==false?createIllustration(town,palette):undefined;
   const zoning = options.districtColors === true;
   const detailedColors = zoning || [palette.roof, palette.tree, palette.water, palette.wall].some(color => color !== undefined);
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
@@ -82,14 +82,14 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     commands.push({ kind: 'polyline', points: points(road.vertexIds), stroke: stroke(palette.paper, Math.max(0.01, road.width - palette.normalStroke)) });
   }
   const geometry = new Map<Id, { id: Id; boundary: Id[]; kind: 'building' | 'grove' | 'fountain' | 'statue' }[]>();
-  const water = palette.water ?? mixColor(palette.medium, '#83b8c6', 0.6);
+  const water = waterColor(palette);
   if (town.terrain?.coast) {
     commands.push({ kind: 'polygon', points: town.terrain.coast.water.map(p => ({ ...p })), fill: water });
     commands.push({ kind: 'polyline', points: town.terrain.coast.shoreline.map(p => ({ ...p })), stroke: stroke(mixColor(palette.dark, water, 0.5), palette.normalStroke) });
   }
   if (town.river) {
     const river = town.river, path = river.centerline.map(p => ({ ...p }));
-    const water = palette.water ?? mixColor(palette.medium, '#83b8c6', 0.6);
+    const water = waterColor(palette);
     if (river.surface) commands.push({ kind: 'polygon', points: river.surface.map(p => ({ ...p })), fill: water });
     else {
       commands.push({ kind: 'polyline', points: path, stroke: stroke(mixColor(palette.dark, palette.paper, 0.55), river.width + 2 * river.bankWidth + 0.35) });

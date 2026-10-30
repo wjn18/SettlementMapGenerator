@@ -42,10 +42,10 @@ test('six city palettes switch without regeneration, survive reload, and export 
         expect(xml).toContain('<svg');
       } else {
         const png = PNG.sync.read(bytes);
-        // A zoomed viewport can have farmland at the corner. Check visible
-        // paper pixels across the export, independent of the generated outline.
+        // Every paper now has grain. Count its color range rather than only
+        // pixels equal to the untextured base color.
         let paperPixels = 0;
-        for (let i = 0; i < png.data.length; i += 4) if (png.data[i] === 209 && png.data[i + 1] === 180 && png.data[i + 2] === 136 && png.data[i + 3] === 255) paperPixels++;
+        for (let i = 0; i < png.data.length; i += 4) if (Math.abs(png.data[i] - 209) <= 15 && Math.abs(png.data[i + 1] - 180) <= 15 && Math.abs(png.data[i + 2] - 136) <= 15 && png.data[i + 3] === 255) paperPixels++;
         expect(paperPixels).toBeGreaterThan(png.width * png.height * 0.05);
         expect(png.width).toBeGreaterThan(500);
       }

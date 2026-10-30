@@ -1,5 +1,5 @@
 import type { TownData } from '@settlement/core';
-import { buildMapScene, fitViewport, THEMES } from '@settlement/map-scene';
+import { buildMapScene, fitViewport, THEMES, normalizeThemeName } from '@settlement/map-scene';
 import type { MapRenderer, Viewport, MapScene } from '@settlement/map-scene';
 import { rendererFactories, isRendererKind, exportImage, download } from './renderers';
 import type { RendererKind } from './renderers';
@@ -32,6 +32,7 @@ let differenceRevision=0;
 const detail=document.querySelector<HTMLSelectElement>('#detail')!,difference=document.querySelector<HTMLButtonElement>('#difference')!;
 if(Object.hasOwn(samples,query.get('sample')??''))sample.value=query.get('sample')!;
 for(const select of [theme,scale,detail])if(Array.from(select.options).some(option=>option.value===query.get(select.id)))select.value=query.get(select.id)!;
+theme.value=normalizeThemeName(query.get('theme')??theme.value);
 function clearDifference():void {differenceRevision++;document.querySelectorAll('.difference-layer').forEach(el=>el.remove());difference.setAttribute('aria-pressed','false');difference.textContent='显示边缘差异';document.querySelector<HTMLElement>('#difference-note')!.hidden=true;}
 const host=(kind:RendererKind)=>document.getElementById(kind)!;
 function baseView(kind:RendererKind):Viewport{

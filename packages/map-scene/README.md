@@ -4,11 +4,11 @@
 
 ```ts
 import { buildMapScene, THEMES, fitViewport } from '@settlement/map-scene';
-const scene = buildMapScene(town, THEMES.parchment);
+const scene = buildMapScene(town, THEMES.illustrated);
 const viewport = fitViewport(scene.bounds, 800, 800, 32);
 ```
 
-输入为经过 core 校验的 TownData 和主题，输出独立 `MapScene`（bounds、background、顺序 commands、hitRegions），不修改输入，不重新生成地图或消费随机数。旧主题为 parchment、blueprint、ancient、colour、ink、monochrome，颜色与笔画移植自旧版 Palette/Brush。新增 modern、turquoise、fairytale、tapestry、natural、june，原始用户提供配色文件保存在 `src/palettes/city_*.json`，构建时原样带入包中。
+输入为经过 core 校验的 TownData 和主题，输出独立 `MapScene`（bounds、background、顺序 commands、hitRegions），不修改输入，不重新生成地图或消费生成器随机数。图纸包括 illustrated、blueprint、ancient、colour、ink、monochrome，以及 modern、turquoise、fairytale、tapestry、natural、june。原始用户提供配色文件保存在 `src/palettes/city_*.json`，构建时原样带入包中。
 
 绘制顺序：外部道路双层描边 → 按地块绘制建筑/景物 → 城墙 → 城门 → 塔楼。城堡、教堂先绘制全部轮廓，再统一填充，避免共享边成为内部黑线。城区道路仍由留白表达。默认普通笔画 0.3、墙宽 1.8，世界单位。
 
@@ -16,9 +16,9 @@ const viewport = fitViewport(scene.bounds, 800, 800, 32);
 
 `themeFromCityPalette(JSON.parse(text))` 校验并转换参考网站的十色 JSON，包括字符串形式的 0–100 数值。`tintMethod: Overlay` 将暖色以叠加方式混入屋顶，`Spectrum` 按街区改变屋顶色相；`tintStrength` 控制强度。`weathering` 按建筑产生向纸色褪色的效果。外观噪声仅取决于地图种子及街区/建筑 ID，重绘和导出保持一致。这些是本项目的可移植近似算法，并非原网站纹理/做旧算法的复刻。所有效果在共享场景中计算，Canvas、SVG、OpenFL 与 PNG/SVG 导出使用同一组颜色；页面底部的种子说明是独立 UI，不包含在图片导出中。
 
-主页面和并排比较页共用 `THEMES` / `THEME_LABELS` 的 13 套预设。可用 `?theme=turquoise` 等 URL 参数恢复配色。单元验证：`node --test tests/p3/*.test.mjs`（先构建包）；新增浏览器验证：`npx playwright test --config playwright.p5.config.ts tests/p5/themes.spec.ts`。
+主页面和并排比较页共用 `THEMES` / `THEME_LABELS` 的 12 套预设；旧羊皮纸已删除，保留手绘羊皮纸。可用 `?theme=turquoise` 等 URL 参数恢复配色，旧 `theme=parchment` 链接自动使用 `illustrated`。单元验证：`node --test tests/p3/*.test.mjs`（先构建包）；浏览器验证：`npx playwright test --config playwright.p5.config.ts tests/p5/illustration.spec.ts`。
 
-`THEMES.illustrated`（手绘羊皮纸）提供暖色纸纹、克制的街区配色、屋顶脊线、沿水面裁切的波纹和岸线、农田垄线、避让道路及建筑的树丛、木栈桥、船舱与帆装细节，以及教堂、城堡和集市图标。主页面未指定主题时默认使用这一风格；显式主题 URL 保留原选择。`buildMapScene(town, THEMES.illustrated, { illustration: false })` 可保留配色并关闭装饰。
+所有图纸默认共享细纸纹、屋顶脊线、沿水面裁切的波纹和岸线、农田垄线、避让道路及建筑的树丛、栈桥木板、船舱与帆装细节，以及教堂、城堡和集市图标；细节颜色取自各自主题。`THEMES.illustrated`（手绘羊皮纸）保留暖色纸面和克制的街区配色，仍是默认图纸。`buildMapScene(town, theme, { illustration: false })` 可显式关闭共享细节，供历史绘图回归或需要简化场景的库调用使用。
 
 装饰使用独立的确定性随机序列，不修改 TownData、地块、建筑、道路、水域和泊位。河港船只直接采用源规划的中心、朝向和尺寸；海港船只是经过水面检查的绘图点缀。`scene.landmarks` 保存可命中所属街区的图标位置，`scene.illustration` 提供装饰计数。细节均进入三种绘制器和 PNG/SVG 导出；纸纹由共享像素算法生成小幅纹理，在 SVG 中内嵌，无需外部图片资源。矢量波纹、农田、码头和树木仍可编辑。
 

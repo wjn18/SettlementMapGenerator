@@ -1,6 +1,6 @@
 import type { TownData, Point2, Bounds } from '@settlement/core';
 import type { DrawCommand, Stroke } from './index.js';
-import { mixColor } from './themes.js';
+import { mixColor, waterColor as themeWaterColor } from './themes.js';
 import type { MapTheme } from './themes.js';
 
 export interface Landmark {
@@ -142,7 +142,9 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
   }
 
   // Shore contours stop at the river mouth; little wavelets are clipped to water.
-  const waterColor=palette.water??mixColor(palette.medium,'#83b8c6',.6);
+  const waterColor=themeWaterColor(palette);
+  const waterContrast=Math.hypot(...[1,3,5].map(i=>parseInt(waterColor.slice(i,i+2),16)-parseInt(palette.light.slice(i,i+2),16)));
+  const waterInk=waterContrast<80?palette.dark:palette.light;
   const contours=(path:Point2[],closed:boolean,sea:boolean):void=>{
     const points=closed?[...path,path[0]]:path;
     for(const band of [1.1,2.5,4.4]){
@@ -154,7 +156,7 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
         const count=Math.max(1,Math.min(300,Math.ceil(length/(unit*2))));
         for(let j=0;j<count;j++){const p=lerp(a,b,j/count),wiggle=Math.sin((p.x+p.y)*.09/unit+band)*unit*.12,offset=band*unit+wiggle;samples.push({x:p.x+normal.x*offset*sign,y:p.y+normal.y*offset*sign});}
       }
-      validLine(result.water,samples,mixColor(waterColor,palette.light,.35),unit*.11,p=>inExtent(p)&&waterAt(p)&&(sea?!riverAt(p):!coast||!inside(coast.water,p)));
+      validLine(result.water,samples,mixColor(waterColor,waterInk,.35),unit*.11,p=>inExtent(p)&&waterAt(p)&&(sea?!riverAt(p):!coast||!inside(coast.water,p)));
     }
   };
   if(coast)contours(coast.shoreline,false,true);
@@ -166,7 +168,7 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
       let angle=0;
       if(riverAt(c)&&river){let best=Infinity;for(let i=1;i<river.centerline.length;i++){const a=river.centerline[i-1],b=river.centerline[i],d=segmentDistance(c,a,b);if(d<best){best=d;angle=Math.atan2(b.y-a.y,b.x-a.x);}}}
       const phase=rng()*TAU,points=Array.from({length:9},(_,i)=>{const t=i/8-.5,offset=Math.sin(i/8*TAU+phase)*unit*.5;return{x:c.x+Math.cos(angle)*t*length-Math.sin(angle)*offset,y:c.y+Math.sin(angle)*t*length+Math.cos(angle)*offset};});
-      if(points.every(waterAt)&&points.slice(1).every((p,i)=>waterAt(lerp(points[i],p,.5)))){line(result.water,points,mixColor(waterColor,palette.light,.36+rng()*.14),unit*.16);result.details.waves++;}
+      if(points.every(waterAt)&&points.slice(1).every((p,i)=>waterAt(lerp(points[i],p,.5)))){line(result.water,points,mixColor(waterColor,waterInk,.36+rng()*.14),unit*.16);result.details.waves++;}
     }
   }
 
@@ -207,7 +209,7 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
     line(result.trees,[{x:p.x-r*.35,y:p.y+r*.13},p,{x:p.x+r*.16,y:p.y-r*.4}],outline,unit*.095);
   }
 
-  const wood=mixColor(palette.roof??palette.light,'#b1966b',.45),woodInk=mixColor(wood,palette.dark,.58),boats:{p:Point2;r:number}[]=[];
+  const wood=palette.mutedColors?mixColor(palette.roof??palette.light,'#b1966b',.45):palette.roof??palette.light,woodInk=mixColor(wood,palette.dark,.58),boats:{p:Point2;r:number}[]=[];
   const boat=(p:Point2,heading:number,length:number,beam:number,sail:boolean):void=>{
     const u={x:Math.cos(heading),y:Math.sin(heading)},at=(x:number,y:number)=>({x:p.x+u.x*x-u.y*y,y:p.y+u.y*x+u.x*y});
     const hull=[[-.5,0],[-.39,-.36],[-.12,-.49],[.25,-.43],[.46,-.18],[.5,0],[.46,.18],[.25,.43],[-.12,.49],[-.39,.36]];

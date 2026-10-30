@@ -2,7 +2,7 @@ import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTo
 import { GenerationTask } from './generation-task';
 import { createThreeD } from './three-d';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas, PopulationDensity, PopulationEstimate } from '@settlement/core';
-import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance } from '@settlement/map-scene';
+import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance, normalizeThemeName } from '@settlement/map-scene';
 import type { MapScene, Viewport, SceneOptions } from '@settlement/map-scene';
 import { rendererFactories, isRendererKind, exportSceneImage, download } from './renderers';
 import type { RendererKind } from './renderers';
@@ -298,6 +298,5 @@ if (params.has('river')) initial.river = (params.get('river') === 'true' ? true 
 if (params.has('coast')) initial.coast = (params.get('coast') === 'false' ? false : params.get('coast')) as GenerateOptions['coast'];
 if (params.has('harbor')) initial.harbor = (params.get('harbor') === 'true' ? true : params.get('harbor') === 'false' ? false : params.get('harbor')) as boolean;
 if (params.has('riverHarbor')) initial.riverHarbor = (params.get('riverHarbor') === 'true' ? true : params.get('riverHarbor') === 'false' ? false : params.get('riverHarbor')) as boolean;
-if (params.has('theme') && Object.hasOwn(THEMES, params.get('theme')!)) theme.value = params.get('theme')!;
-else theme.value='illustrated';
+theme.value=normalizeThemeName(params.get('theme'));
 setFields(initial); void generate(initial);

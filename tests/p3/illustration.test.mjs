@@ -1,11 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateTown, serializeTown } from '@settlement/core';
-import { buildMapScene, THEMES, pointInRing, pickScene, paperTexturePixels } from '@settlement/map-scene';
+import { buildMapScene, THEMES, THEME_LABELS, normalizeThemeName, pointInRing, pickScene, paperTexturePixels } from '@settlement/map-scene';
 import { createIllustration } from '../../packages/map-scene/dist/illustration.js';
 
 const result=generateTown({seed:12345,size:24,coast:'east',river:true,harbor:true,castle:true,walls:true,plaza:true});assert(result.ok);
 const town=result.town;
+test('every paper draws the same fine details in its own palette and the retired paper migrates',()=>{
+  assert.equal(Object.keys(THEMES).length,12);assert.equal(Object.keys(THEME_LABELS).length,12);
+  assert.equal(Object.hasOwn(THEMES,'parchment'),false);assert.equal(Object.hasOwn(THEME_LABELS,'parchment'),false);
+  assert.equal(normalizeThemeName('parchment'),'illustrated');
+  const original=serializeTown(town),reference=buildMapScene(town,THEMES.illustrated);
+  for(const [name,theme] of Object.entries(THEMES)){
+    const scene=buildMapScene(town,theme);
+    assert.deepEqual(scene.illustration,reference.illustration,name+' lacks fine cartography');
+    assert.deepEqual(scene.landmarks,reference.landmarks);assert.deepEqual(scene.hitRegions,reference.hitRegions);
+    assert.deepEqual(scene.paperTexture,{seed:town.resolved.seed,color:theme.paper});
+    assert.equal(scene.background,theme.paper);assert.equal(serializeTown(town),original);
+  }
+});
 test('illustrated cartography is deterministic and leaves planning, JSON, geometry and hit regions intact',()=>{
   const original=serializeTown(town),plain=buildMapScene(town,THEMES.illustrated,{illustration:false}),scene=buildMapScene(town,THEMES.illustrated);
   assert.deepEqual(buildMapScene(town,THEMES.illustrated),scene);assert.equal(serializeTown(town),original);

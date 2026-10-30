@@ -46,10 +46,9 @@ for (const name of names) test(`${name}: source colors, deterministic effects an
     const expected = feature.kind === 'grove' ? theme.tree : feature.kind === 'fountain' ? theme.water : theme.wall;
     assert.equal(shape(scene, feature.boundary).at(-1).fill, expected);
   }
-  for (const district of town.districts.filter(d => ['Farm', 'Park'].includes(d.wardType)))
+  for (const district of town.districts.filter(d => d.withinCity&&['Farm', 'Park'].includes(d.wardType)))
     assert.equal(shape(scene, district.boundary)[0].fill, theme.green);
-  // Legacy themes retain their original, untextured drawing behavior.
-  assert.deepEqual(buildMapScene(town, THEMES.parchment), buildMapScene(town));
+  assert.deepEqual(buildMapScene(town, THEMES.illustrated), buildMapScene(town));
 });
 
 test('independent feature channels and unsafe palette values', () => {
@@ -59,11 +58,11 @@ test('independent feature channels and unsafe palette values', () => {
     { ...source, tintStrength: '' }, { ...source, tintStrength: true }, { ...source, weathering: '101' },
     { ...source, weathering: '-1' }, { ...source, tintMethod: 'Unknown' }]) assert.throws(() => themeFromCityPalette(value));
   for (const override of [{ roof: 'red' }, { tree: null }, { weathering: NaN }, { tintStrength: Infinity }, { tintMethod: 'Unknown' }])
-    assert.throws(() => buildMapScene(town, { ...THEMES.parchment, ...override }));
+    assert.throws(() => buildMapScene(town, { ...THEMES.illustrated, ...override }));
   const fountainTown = structuredClone(town);
   fountainTown.features.forEach(f => { f.kind = 'fountain'; });
   assert.ok(fountainTown.features.length);
-  const scene = buildMapScene(fountainTown, { ...THEMES.parchment, water: '#123456' });
+  const scene = buildMapScene(fountainTown, { ...THEMES.illustrated, water: '#123456' });
   for (const feature of fountainTown.features) assert.equal(shape(scene, feature.boundary).at(-1).fill, '#123456');
 });
 
