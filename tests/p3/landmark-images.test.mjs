@@ -43,6 +43,14 @@ test('building bitmaps are ready synchronously with transparent edges and theme-
   }
 });
 
+test('a consumer cannot erase the cached building artwork for later previews or exports',()=>{
+  const first=landmarkBitmap('church','#20251d','#eee6cf'),expected=new Uint8ClampedArray(first.pixels);
+  first.pixels.fill(0);
+  const next=landmarkBitmap('church','#20251d','#eee6cf');
+  assert.deepEqual(next.pixels,expected);
+  assert.notStrictEqual(next.pixels,first.pixels);
+});
+
 test('every paper uses image landmarks without changing the saved town or district picking',()=>{
   const original=serializeTown(town),colorways=new Set();let layout;
   for(const [name,palette] of Object.entries(THEMES)){
