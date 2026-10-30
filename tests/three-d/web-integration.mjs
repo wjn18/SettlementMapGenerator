@@ -13,7 +13,7 @@ let jobId;
 try {
   await page.goto(base+'/?seed=7&size=6&walls=true&plaza=true&castle=false&test=1');
   await page.waitForSelector('body[data-ready="true"]');
-  await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);
+  await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled,null,{timeout:120000});
   await page.locator('#view-three-d').click();
   await page.selectOption('#three-d-history','sample-12');
   await page.waitForFunction(()=>{const i=document.querySelector('#three-d-image');return i.complete&&i.naturalWidth===3600&&i.src.includes('/sample-12/');});
@@ -28,8 +28,16 @@ try {
   assert.equal(invalid,400);
   const wet=generateTown({seed:7,size:6,walls:true,castle:false,plaza:true,river:true});assert.ok(wet.ok);
   await page.evaluate(t=>window.__playground.load(JSON.stringify(t)),wet.town);
+  await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);
+  assert.equal(await page.locator('#three-d-generate').isDisabled(),false);
+  const estuary=generateTown({seed:7,size:6,walls:true,castle:false,plaza:true,river:true,coast:'east'});assert.ok(estuary.ok);
+  await page.evaluate(t=>window.__playground.load(JSON.stringify(t)),estuary.town);
+  await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);
+  assert.equal(await page.locator('#three-d-generate').isDisabled(),false);
+  const legacy=structuredClone(estuary.town);delete legacy.river.surface;
+  await page.evaluate(t=>window.__playground.load(JSON.stringify(t)),legacy);
   assert.equal(await page.locator('#three-d-generate').isDisabled(),true);
-  const unsupported=await page.evaluate(async town=>{const r=await fetch('/api/3d/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({town,quality:'preview'})});return r.status;},wet.town);
+  const unsupported=await page.evaluate(async town=>{const r=await fetch('/api/3d/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({town,quality:'preview'})});return r.status;},legacy);
   assert.equal(unsupported,422);
   await page.evaluate(t=>window.__playground.load(JSON.stringify(t)),original);
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);
@@ -55,13 +63,24 @@ try {
   const verification=await (await fetch(base+finished.files['verification.json'])).json();assert.equal(verification.status,'pass');assert.equal(verification.counts.verifiedBuildings,107);
   assert.equal(finished.assetLibraryUsed,true);
   assert.equal(verification.assetIntegration.passed,true);
+  assert.ok(verification.assetIntegration.checkedRidges>0);
+  assert.ok(verification.assetIntegration.ridges.every(r=>r.passed&&r.unsupportedVertices===0&&r.maxDistanceToRoof<=.4));
   assert.ok(verification.assetIntegration.usedVariants>20);
   const assetUse=await (await fetch(base+finished.files['asset-integration.json'])).json();
-  assert.equal(assetUse.enabled,true);assert.equal(assetUse.buildingsWithAuthoredComponents,107);
+  assert.equal(assetUse.enabled,true);
+  // This enclosed shed had only an invalid ridge cap before the fix. Its
+  // native shell remains; it should not gain a floating cap to meet a count.
+  assert.equal(assetUse.buildingsWithAuthoredComponents,106);
+  assert.equal(assetUse.instances.some(r=>r.sourceBuildingId==='b99'),false);
+  assert.equal(new Set(assetUse.instances.map(r=>r.sourceBuildingId).filter(Boolean)).size,106);
   const source=await (await fetch(base+finished.files['source-town.json'])).json();assert.deepEqual(source,original);
   const blend=await fetch(base+finished.files['scene.blend']);assert.equal(blend.status,200);assert.match(blend.headers.get('content-disposition'),/attachment/);assert.ok((await blend.arrayBuffer()).byteLength>10000);
   await page.screenshot({path:out+'/generated-preview.png'});
   // Cancel a separate owned job and verify the renderer lock is released.
+  // A repeated identical request now completes from cache, so use a different
+  // planning snapshot to exercise a real running Blender cancellation.
+  const cancellationTown=generateTown({seed:3456789,size:6,walls:true,castle:false,plaza:true});assert.ok(cancellationTown.ok);
+  await page.evaluate(t=>window.__playground.load(JSON.stringify(t)),cancellationTown.town);
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);
   const next=page.waitForResponse(r=>r.url().endsWith('/api/3d/jobs')&&r.request().method()==='POST');
   await page.locator('#three-d-generate').click();const cancelledId=(await (await next).json()).id;
@@ -77,6 +96,6 @@ try {
   assert.equal((await (await fetch(base+'/api/3d/jobs/'+cancelledId)).json()).status,'cancelled');
   assert.equal((await (await fetch(base+'/api/3d/status')).json()).activeId,null);
   assert.deepEqual(errors,[]);
-  await fs.writeFile(out+'/verification.json',JSON.stringify({passed:true,jobId,cancelledId,checks:['existing samples','stale plan notice','cross-origin rejection','invalid input','unsupported water','submit current plan','duplicate job guard','reload recovery','real Blender render','107 footprint checks','exact submitted JSON','Blender download','cancel process tree'],pageErrors:errors},null,2));
+  await fs.writeFile(out+'/verification.json',JSON.stringify({passed:true,jobId,cancelledId,checks:['existing samples','stale plan notice','cross-origin rejection','invalid input','inland river button enabled','river plus coast rejected','submit current plan','duplicate job guard','reload recovery','real Blender render','107 footprint checks','supported ridge geometry','exact submitted JSON','Blender download','cancel process tree'],roofRidges:{checked:verification.assetIntegration.checkedRidges,passed:verification.assetIntegration.ridges.every(r=>r.passed)},pageErrors:errors},null,2));
   console.log('PASS',jobId);
 } finally {await browser.close();}

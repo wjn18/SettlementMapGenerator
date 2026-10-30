@@ -1,6 +1,8 @@
 import { createServer, preview } from 'vite';
 import path from 'node:path';
 export default async function setup() {
+  // Test dev servers must never mark the user's live render job as interrupted.
+  process.env.SETTLEMENT_3D_JOBS_ROOT=path.resolve('artifacts/p5/isolated-three-d');
   const root = path.resolve('apps/playground');
   const dev = await createServer({ root, server: { host: '127.0.0.1', port: 5175, strictPort: true } }); await dev.listen();
   try {

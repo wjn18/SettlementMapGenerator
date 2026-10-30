@@ -34,8 +34,10 @@ let atlas: TownAtlas | null = null, initialNames = true;
 let regionByDistrict = new Map<string, string>(), regionSummary = new Map<string, string>();
 const districtColors = $<HTMLInputElement>('district-colors');
 const coast = $<HTMLSelectElement>('coast'), harbor = $<HTMLSelectElement>('harbor');
-function updateTerrainControls(): void { harbor.disabled = coast.value === 'false'; }
+const riverHarbor = $<HTMLSelectElement>('river-harbor');
+function updateTerrainControls(): void { harbor.disabled = coast.value === 'false'; riverHarbor.disabled = $<HTMLSelectElement>('river').value !== 'true'; }
 coast.addEventListener('change', updateTerrainControls);
+$<HTMLSelectElement>('river').addEventListener('change', updateTerrainControls);
 districtColors.checked = params.get('districts') !== 'false';
 if (params.get('capture') === '1') document.body.dataset.capture = 'true';
 let rendererKind: RendererKind = isRendererKind(params.get('renderer')) ? params.get('renderer') as RendererKind : 'canvas';
@@ -51,11 +53,12 @@ function palette() { return THEMES[theme.value as keyof typeof THEMES]; }
 function notifyError(message: string) { error.hidden = false; error.textContent = message; status.textContent = '操作未完成，请检查提示'; }
 function options(): GenerateOptions {
   const feature = (id: string): FeatureChoice => { const value = $<HTMLSelectElement>(id).value; return value === 'auto' ? value : value === 'true'; };
-  return { seed: Number(seed.value), size: Number(size.value), plaza: feature('plaza'), castle: feature('castle'), walls: feature('walls'), ...($<HTMLSelectElement>('river').value === 'true' ? { river: true } : {}), ...(coast.value === 'false' ? {} : { coast: coast.value as GenerateOptions['coast'], harbor: harbor.value === 'true' }) };
+  return { seed: Number(seed.value), size: Number(size.value), plaza: feature('plaza'), castle: feature('castle'), walls: feature('walls'), ...($<HTMLSelectElement>('river').value === 'true' ? { river: true, ...(riverHarbor.value === 'true' ? { riverHarbor: true } : {}) } : {}), ...(coast.value === 'false' ? {} : { coast: coast.value as GenerateOptions['coast'], harbor: harbor.value === 'true' }) };
 }
 function setFields(value: GenerateOptions): void {
   seed.value = String(value.seed);
   $<HTMLSelectElement>('river').value = String(value.river ?? false);
+  riverHarbor.value = String(value.riverHarbor ?? false);
   coast.value = String(value.coast ?? false); harbor.value = String(value.harbor ?? true); updateTerrainControls();
   if (!Array.from(size.options).some(o => o.value === String(value.size))) size.add(new Option(`自定 · ${value.size} 地块`, String(value.size)));
   size.value = String(value.size);
@@ -69,6 +72,7 @@ function syncURL(): void {
   url.searchParams.set('river', String(town.request.river ?? false));
   url.searchParams.set('coast', String(town.request.coast ?? false));
   url.searchParams.set('harbor', String(town.request.harbor ?? true));
+  url.searchParams.set('riverHarbor', String(town.request.riverHarbor ?? false));
   url.searchParams.set('districts', String(districtColors.checked));
   url.searchParams.set('labels', String(showNames.checked));
   url.searchParams.set('population', populationDensity.value);
@@ -181,7 +185,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   $('building-count').textContent = next.buildings.length.toLocaleString('en-US');
   refreshNames();
   const coastSide = next.terrain?.coast?.side;
-  $('resolved').textContent = [next.resolved.plaza ? '有广场' : '无广场', next.resolved.castle ? '有城堡' : '无城堡', next.resolved.walls ? '有城墙' : '无城墙', ...(coastSide ? [`${({ east: '东', south: '南', west: '西', north: '北' })[coastSide]}侧海岸`] : []), ...(next.river ? [`${coastSide ? '河口' : '沿河城市'} · ${next.river.bridges.length} 座桥`] : []), ...(next.terrain?.docks.length ? [`${next.terrain.docks.length} 座码头`] : [])].join(' · ');
+  $('resolved').textContent = [next.resolved.plaza ? '有广场' : '无广场', next.resolved.castle ? '有城堡' : '无城堡', next.resolved.walls ? '有城墙' : '无城墙', ...(coastSide ? [`${({ east: '东', south: '南', west: '西', north: '北' })[coastSide]}侧海岸`] : []), ...(next.river ? [`${coastSide ? '河口' : '沿河城市'} · ${next.river.bridges.length} 座桥`] : []), ...(next.terrain?.docks.length ? [`${next.terrain.docks.filter(d => d.waterbody !== 'river').length} 座海港码头 · ${next.terrain.docks.filter(d => d.waterbody === 'river').length} 座河港码头`] : [])].join(' · ');
   status.textContent = (source === 'imported' ? '已导入地图 · 原始几何已保留' : '地图已就绪') + namesNotice;
   $('hover-label').textContent = '将指针移入地图，查看街区用途';
   fit(); syncURL(); drawTheme(); document.body.dataset.ready = 'true';
@@ -293,5 +297,6 @@ if (params.has('maxAttempts')) initial.maxAttempts = Number(params.get('maxAttem
 if (params.has('river')) initial.river = (params.get('river') === 'true' ? true : params.get('river') === 'false' ? false : params.get('river')) as boolean;
 if (params.has('coast')) initial.coast = (params.get('coast') === 'false' ? false : params.get('coast')) as GenerateOptions['coast'];
 if (params.has('harbor')) initial.harbor = (params.get('harbor') === 'true' ? true : params.get('harbor') === 'false' ? false : params.get('harbor')) as boolean;
+if (params.has('riverHarbor')) initial.riverHarbor = (params.get('riverHarbor') === 'true' ? true : params.get('riverHarbor') === 'false' ? false : params.get('riverHarbor')) as boolean;
 if (params.has('theme') && Object.hasOwn(THEMES, params.get('theme')!)) theme.value = params.get('theme')!;
 setFields(initial); void generate(initial);

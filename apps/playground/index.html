@@ -10,8 +10,9 @@
       <p id="size-note" class="terrain-note">数字为基础城区地块数；墙内补建、城堡及地形会影响实际数量。</p>
       <div class="features"><label>广场<select id="plaza"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label><label>城堡<select id="castle"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label><label>城墙<select id="walls"><option value="auto">自动</option><option value="true">有</option><option value="false">无</option></select></label></div>
       <label for="coast">海岸</label><select id="coast"><option value="false">内陆</option><option value="auto">沿海 · 自动方向</option><option value="east">东侧临海</option><option value="south">南侧临海</option><option value="west">西侧临海</option><option value="north">北侧临海</option></select>
-      <div class="terrain-options"><label>河流<select id="river"><option value="false">无河流</option><option value="true">沿河 · 自动建桥</option></select></label><label>港口<select id="harbor" disabled><option value="true">港区与码头</option><option value="false">无港口</option></select></label></div>
-      <p class="terrain-note">沿海与河流组合生成河口；道路和建筑沿岸布局。</p>
+      <div class="terrain-options"><label>河流<select id="river"><option value="false">无河流</option><option value="true">沿河 · 自动建桥</option></select></label><label>海岸港口<select id="harbor" disabled><option value="true">港区与码头</option><option value="false">无海港</option></select></label></div>
+      <label for="river-harbor">内河港口</label><select id="river-harbor" disabled><option value="false">无河港</option><option value="true">顺岸码头与货运泊位</option></select>
+      <p class="terrain-note">河港保留进出水路并避开桥梁；河口可同时生成海港和河港。</p>
       <button id="generate" class="primary" type="submit">生成地图 <span>↗</span></button>
     </fieldset></form><button id="cancel" type="button" hidden>取消生成</button>
     <section class="population-card" aria-label="人口估算">
