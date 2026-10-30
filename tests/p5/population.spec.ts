@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 
 const url = '/?test=1&seed=42&size=24&coast=east&river=true&harbor=true&castle=true&plaza=true&walls=false&theme=modern&districts=false';
@@ -15,6 +16,7 @@ test('population estimates, density, regional information, reports and imported 
   await expect(page.locator('#population-density option')).toHaveText(['低密度 · 50 人/公顷', '基准密度 · 100 人/公顷', '高密度 · 200 人/公顷']);
   await expect(page.locator('#population-total')).toHaveAttribute('data-residents', String(initial.total.residents));
   await expect(page.locator('#population-density')).toHaveValue('typical');
+  await openSidebarTask(page, 'population');
   await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: `artifacts/population/${info.project.name}-overview.png` });
   await page.locator('#population-density').selectOption('sparse');
   expect((await page.evaluate(() => window.__playground.population.total.residents))).toBeLessThan(initial.total.residents);
@@ -32,7 +34,7 @@ test('population estimates, density, regional information, reports and imported 
   await page.locator('.population-card').screenshot({ path: `artifacts/population/${info.project.name}-details.png` });
   await page.locator('#population-details summary').click();
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind); await page.locator('#map').scrollIntoViewIfNeeded();
+    await selectRenderer(page, kind); await page.locator('#map').scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => window.__playground.population)).toEqual(dense);
     const target = await page.evaluate(() => {
       const a = window.__playground, host = document.getElementById('map')!, rect = host.getBoundingClientRect(), region = a.town.atlas.regions[0];
@@ -49,6 +51,7 @@ test('population estimates, density, regional information, reports and imported 
     await page.locator('#close-names').click();
   }
   await page.locator('#edit-names').click(); await page.locator('#region-name').fill('New Quarter'); await page.locator('#region-name-form button').click(); await page.locator('#close-names').click();
+  await openSidebarTask(page, 'population');
   await page.locator('#population-details summary').click();
   await expect(page.locator('#population-regions tr').first()).toContainText('New Quarter');
   const pending = page.waitForEvent('download'); await page.locator('#population-report').click();
@@ -59,11 +62,13 @@ test('population estimates, density, regional information, reports and imported 
   await expect(page.locator('#population-density')).toHaveValue('dense');
   expect(await page.evaluate(() => window.__playground.population)).toEqual(report.estimate);
   const legacy = JSON.parse(original.town); delete legacy.atlas;
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'legacy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy)) });
   await expect(page.locator('#status')).toContainText('已导入');
   expect(await page.evaluate(() => window.__playground.population.total)).toEqual(dense.total);
   expect(await page.evaluate(() => window.__playground.town)).toEqual(legacy);
   const empty = { ...legacy, buildings: [] };
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'empty.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(empty)) });
   await expect(page.locator('#population-total')).toHaveAttribute('data-residents', String(dense.total.residents));
   const emptyEstimate = await page.evaluate(() => window.__playground.population);
@@ -73,6 +78,7 @@ test('population estimates, density, regional information, reports and imported 
   await expect(page.locator('#population-range')).toContainText('低–高情景');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await openSidebarTask(page, 'population');
   await page.locator('.population-card').screenshot({ path: `artifacts/population/${info.project.name}-mobile.png` });
   expect(errors).toEqual([]);
 });

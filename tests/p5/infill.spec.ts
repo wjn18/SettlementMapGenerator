@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 import { TERRAIN_GENERATOR_VERSION } from '../../packages/core/dist/index.js';
 
@@ -37,13 +38,15 @@ test('reported wall gaps become urban land in every renderer and survive JSON ex
   expect(report.gaps.filter(g => g.enclosed).every(g => g.urban)).toBe(true);
   expect(report.population).toBe(Math.round(report.landArea / 100));
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind);
+    await selectRenderer(page, kind);
     expect(await page.evaluate(() => JSON.stringify((window as any).__playground.town))).toBe(saved);
     await page.screenshot({ path: `artifacts/infill/${info.project.name}-${kind}.png` });
   }
+  await openSidebarTask(page, 'files');
   const pending = page.waitForEvent('download'); await page.locator('#export').click();
   const bytes = readFileSync((await (await pending).path())!);
   expect(JSON.parse(bytes.toString())).toEqual(JSON.parse(saved));
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'infill.json', mimeType: 'application/json', buffer: bytes });
   await expect(page.locator('#status')).toContainText('已导入');
   expect(await page.evaluate(() => (window as any).__playground.town)).toEqual(JSON.parse(saved));

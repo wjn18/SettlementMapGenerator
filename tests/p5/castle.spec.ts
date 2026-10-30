@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 
 for (const water of [false, true]) test(`castle is one seamless building in preview and SVG export (${water ? 'estuary' : 'inland'})`, async ({ page }, info) => {
@@ -20,10 +21,11 @@ for (const water of [false, true]) test(`castle is one seamless building in prev
   });
   expect(castle.count).toBe(1); expect(castle.commands).toBe(1);
   for (const renderer of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(renderer);
+    await selectRenderer(page, renderer);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.locator('#map').screenshot({ path: `artifacts/castle/${water ? 'estuary' : 'inland'}-${renderer}-${info.project.name}.png` });
   }
+  await openSidebarTask(page, 'files');
   const pending = page.waitForEvent('download'); await page.locator('#export-svg').click();
   const download = await pending, xml = readFileSync((await download.path())!, 'utf8');
   expect(await page.evaluate(({ xml, path }) => {

@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 
-const url = '/?test=1&seed=42&size=24&coast=east&river=true&harbor=true&castle=true&plaza=true&walls=false&theme=modern&districts=false&labels=true';
+const url = '/?test=1&seed=42&size=24&coast=east&river=true&harbor=true&riverHarbor=false&castle=true&plaza=true&walls=false&theme=modern&districts=false&labels=true';
 test('grid, scale and compass share all renderers, update with the camera and survive export and reload', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(url); await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -10,7 +11,7 @@ test('grid, scale and compass share all renderers, update with the camera and su
   expect(JSON.parse(original.town).atlas.cityName).toMatch(/^[A-Za-z]+$/);
   for (const control of ['#show-grid', '#show-scale', '#show-compass']) await expect(page.locator(control)).toBeChecked();
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind);
+    await selectRenderer(page, kind);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `artifacts/cartography/${info.project.name}-${kind}.png` });
     await expect(page.locator('#map canvas, #map svg')).toHaveCount(1);
@@ -20,6 +21,7 @@ test('grid, scale and compass share all renderers, update with the camera and su
       await expect(page.locator('#map [data-cartography-layer="compass"] text')).toHaveText('N');
     }
     for (const format of ['png', 'svg']) {
+      await openSidebarTask(page, 'files');
       const pending = page.waitForEvent('download'); await page.locator(format === 'svg' ? '#export-svg' : '#export-image').click();
       const bytes = readFileSync((await (await pending).path())!);
       if (format === 'svg') {
@@ -38,7 +40,7 @@ test('grid, scale and compass share all renderers, update with the camera and su
     }
   }
   expect(await page.evaluate(() => ({ town: JSON.stringify(window.__playground.town), count: window.__playground.generationCount, view: window.__playground.viewport }))).toEqual(original);
-  await page.locator('#renderer').selectOption('svg');
+  await selectRenderer(page, 'svg');
   const grid = page.locator('#map [data-cartography-layer="grid"]'), scale = page.locator('#map [data-cartography-layer="scale"]');
   const beforeLine = await grid.locator('path').first().getAttribute('d'), beforeScale = Number(await scale.getAttribute('data-distance-meters'));
   await page.locator('#map').focus(); await page.keyboard.press('ArrowRight');

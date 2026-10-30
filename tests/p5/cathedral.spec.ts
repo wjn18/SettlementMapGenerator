@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 import { TERRAIN_GENERATOR_VERSION } from '../../packages/core/dist/index.js';
 
@@ -21,11 +22,13 @@ test('reported triangular church becomes a regular plan across renderers and JSO
   expect(report.parts.map((p:any)=>p.role)).toEqual(['main_hall','bell_tower','annex','annex']);
   expect(report.parts.every((p:any)=>p.corners===4 && Math.min(...p.lengths)>=6)).toBe(true);
   for(const renderer of ['canvas','svg','openfl']) {
-    await page.locator('#renderer').selectOption(renderer);
+    await selectRenderer(page, renderer);
     expect(await page.evaluate(()=>JSON.stringify((window as any).__playground.town))).toBe(saved);
   }
+  await openSidebarTask(page, 'files');
   const download=page.waitForEvent('download'); await page.locator('#export').click();
   const bytes=readFileSync((await(await download).path())!); expect(JSON.parse(bytes.toString())).toEqual(JSON.parse(saved));
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({name:'church.json',mimeType:'application/json',buffer:bytes});
   await expect(page.locator('#status')).toContainText('已导入');
   expect(await page.evaluate(()=>(window as any).__playground.town)).toEqual(JSON.parse(saved));

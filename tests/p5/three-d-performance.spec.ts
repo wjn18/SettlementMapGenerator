@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { openSidebarTask } from '../helpers/sidebar';
 
 for(const fail of [false,true])test(`on-demand view ${fail?'keeps the old picture and error':'reuses the scene and updates the URL'}`,async({page})=>{
   const parent='33333333-3333-4333-8333-333333333333',derived='44444444-4444-4444-8444-444444444444';
@@ -44,6 +45,7 @@ test('an instant finished-result cache hit does not show a running task',async({
   });
   await page.goto('/?test=1&seed=7&size=6&castle=false&walls=true&plaza=true');
   await expect(page.locator('body')).toHaveAttribute('data-ready','true');await expect(page.locator('#three-d-generate')).toBeEnabled();
+  await openSidebarTask(page, 'three-d');
   await page.locator('#three-d-generate').click();
   await expect(page.locator('#three-d-history')).toHaveValue(id);await expect(page.locator('#three-d-meta')).toContainText('复用已完成结果');
   await expect(page.locator('#three-d-cancel')).toBeHidden();await expect(page.locator('#three-d-progress')).toBeHidden();await expect(page.locator('#three-d-generate')).toBeEnabled();

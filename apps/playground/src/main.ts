@@ -10,9 +10,11 @@ import { bitmapTitle } from './bitmap-title';
 import { populateThemes } from './theme-select';
 import { districtLabels as labels, renderDistrictLegend } from './district-legend';
 import { renderPopulation, populationText } from './population-view';
+import { setupSidebar } from './sidebar';
 import './style.css';
 import './names.css';
 import './cartography.css';
+import './sidebar.css';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const host = $('map'), form = $<HTMLFormElement>('generator'), error = $('error'), status = $('status');
@@ -43,6 +45,7 @@ if (params.get('capture') === '1') document.body.dataset.capture = 'true';
 let rendererKind: RendererKind = isRendererKind(params.get('renderer')) ? params.get('renderer') as RendererKind : 'canvas';
 let renderer = rendererFactories[rendererKind](host), town: TownData | null = null, scene: MapScene | null = null;
 const threeD = createThreeD(() => town);
+const sidebar = setupSidebar();
 $<HTMLSelectElement>('renderer').value = rendererKind;
 let viewport: Viewport = { centerX: 0, centerY: 0, zoom: 1 }, baseZoom = 1, generationCount = 0, revision = 0;
 let width = 1, height = 1;
@@ -183,10 +186,13 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   $<HTMLButtonElement>('export-image').disabled = false; $<HTMLButtonElement>('export-svg').disabled = false;
   $('district-count').textContent = String(next.districts.filter(d => d.withinCity).length);
   $('building-count').textContent = next.buildings.length.toLocaleString('en-US');
+  $('map-district-count').textContent = $('district-count').textContent;
+  $('map-building-count').textContent = $('building-count').textContent;
   refreshNames();
   const coastSide = next.terrain?.coast?.side;
   $('resolved').textContent = [next.resolved.plaza ? '有广场' : '无广场', next.resolved.castle ? '有城堡' : '无城堡', next.resolved.walls ? '有城墙' : '无城墙', ...(coastSide ? [`${({ east: '东', south: '南', west: '西', north: '北' })[coastSide]}侧海岸`] : []), ...(next.river ? [`${coastSide ? '河口' : '沿河城市'} · ${next.river.bridges.length} 座桥`] : []), ...(next.terrain?.docks.length ? [`${next.terrain.docks.filter(d => d.waterbody !== 'river').length} 座海港码头 · ${next.terrain.docks.filter(d => d.waterbody === 'river').length} 座河港码头`] : [])].join(' · ');
   status.textContent = (source === 'imported' ? '已导入地图 · 原始几何已保留' : '地图已就绪') + namesNotice;
+  sidebar.setPending(false);
   $('hover-label').textContent = '将指针移入地图，查看街区用途';
   fit(); syncURL(); drawTheme(); document.body.dataset.ready = 'true';
   void threeD.update();
@@ -194,6 +200,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
 async function generate(value = options()): Promise<void> {
   const request = ++generationRequest;
   const fields = $<HTMLFieldSetElement>('parameters'); fields.disabled = true; status.textContent = '正在绘制城镇…';
+  sidebar.setGenerating(true);
   $('cancel').hidden = false;
   try {
     generationCount++; const result = await generation.run(value);
@@ -204,7 +211,7 @@ async function generate(value = options()): Promise<void> {
     if (request !== generationRequest) return;
     if (e instanceof DOMException && e.name === 'AbortError') status.textContent = '已取消生成';
     else notifyError(e instanceof Error ? e.message : String(e));
-  } finally { if (request === generationRequest) { fields.disabled = false; $('cancel').hidden = true; } }
+  } finally { if (request === generationRequest) { fields.disabled = false; $('cancel').hidden = true; sidebar.setGenerating(false); } }
 }
 $('cancel').addEventListener('click', () => generation.cancel());
 form.addEventListener('submit', event => { event.preventDefault(); void generate(); });

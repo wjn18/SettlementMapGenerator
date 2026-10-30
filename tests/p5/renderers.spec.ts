@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import {readFileSync} from 'node:fs';
 import {PNG} from 'pngjs';
 declare global {interface Window{__comparison:any;__playground:any}}
@@ -11,7 +12,7 @@ test('Canvas is the default; PNG and SVG exports preserve the active preview, th
   const before=await page.evaluate(()=>({json:JSON.stringify(window.__playground.town),count:window.__playground.generationCount,view:window.__playground.viewport}));
   const dimensions=await page.locator('#map').evaluate(e=>({width:e.clientWidth,height:e.clientHeight}));
   for(const kind of ['canvas','svg','openfl']){
-    await page.locator('#renderer').selectOption(kind);await expect(page).toHaveURL(new RegExp(`renderer=${kind}`));
+    await selectRenderer(page, kind);await expect(page).toHaveURL(new RegExp(`renderer=${kind}`));
     expect(await page.evaluate(()=>({json:JSON.stringify(window.__playground.town),count:window.__playground.generationCount,view:window.__playground.viewport}))).toEqual(before);
     const hit=await page.evaluate(()=>{
       const a=window.__playground,v=a.viewport,host=document.querySelector('#map')!.getBoundingClientRect();
@@ -24,12 +25,28 @@ test('Canvas is the default; PNG and SVG exports preserve the active preview, th
       return null;
     });expect(hit).not.toBeNull();
     for(const format of ['png','svg']){
+      await openSidebarTask(page, 'files');
       const pending=page.waitForEvent('download');await page.locator(format==='svg'?'#export-svg':'#export-image').click();const download=await pending,bytes=readFileSync((await download.path())!);
       expect(download.suggestedFilename()).toBe(`settlement-42.${format}`);
       if(format==='svg'){
-        const svg=await page.evaluate(xml=>{const doc=new DOMParser().parseFromString(xml,'image/svg+xml');return{error:!!doc.querySelector('parsererror'),namespace:doc.documentElement.namespaceURI,viewBox:doc.documentElement.getAttribute('viewBox'),background:doc.querySelector('rect')?.getAttribute('fill'),transform:doc.querySelector('g')?.getAttribute('transform'),paths:doc.querySelectorAll('path').length};},bytes.toString());
+        const svg=await page.evaluate(xml=>{
+          const doc=new DOMParser().parseFromString(xml,'image/svg+xml'),background=doc.querySelector('rect')?.getAttribute('fill');
+          const patternId=/^url\(#([^)]+)\)$/.exec(background??'')?.[1],pattern=patternId?doc.getElementById(patternId):null;
+          return{error:!!doc.querySelector('parsererror'),namespace:doc.documentElement.namespaceURI,viewBox:doc.documentElement.getAttribute('viewBox'),background,
+            paper:pattern?.localName==='pattern'?{image:pattern.querySelector('image')?.getAttribute('href'),width:Number(pattern.getAttribute('width')),height:Number(pattern.getAttribute('height'))}:null,
+            textured:!!window.__playground.scene.paperTexture,sceneBackground:window.__playground.scene.background,
+            transform:doc.querySelector('g')?.getAttribute('transform'),paths:doc.querySelectorAll('path').length};
+        },bytes.toString());
         expect(svg.error).toBe(false);expect(svg.namespace).toBe('http://www.w3.org/2000/svg');expect(svg.paths).toBeGreaterThan(0);
-        expect(svg.viewBox).toBe(`0 0 ${dimensions.width} ${dimensions.height}`);expect(svg.background).toBe('#455b8d');
+        expect(svg.viewBox).toBe(`0 0 ${dimensions.width} ${dimensions.height}`);expect(svg.sceneBackground).toBe('#455b8d');
+        if(svg.textured){
+          expect(svg.background).toMatch(/^url\(#[^)]+\)$/);expect(svg.paper).not.toBeNull();
+          expect(svg.paper!.image).toMatch(/^data:image\/png;base64,/);
+          const texture=PNG.sync.read(Buffer.from(svg.paper!.image!.split(',')[1],'base64'));
+          expect([texture.width,texture.height]).toEqual([svg.paper!.width,svg.paper!.height]);
+          expect(texture.width).toBeGreaterThan(0);expect(texture.height).toBeGreaterThan(0);
+          expect(texture.data.some((alpha,index)=>index%4===3&&alpha>0)).toBe(true);
+        }else expect(svg.background).toBe('#455b8d');
         expect(svg.transform).toBe(`translate(${dimensions.width/2} ${dimensions.height/2}) scale(${before.view.zoom}) translate(${-before.view.centerX} ${-before.view.centerY})`);
       }else{
         const png=PNG.sync.read(bytes),dpr=Number(info.project.use.deviceScaleFactor);expect([png.width,png.height]).toEqual([Math.round(dimensions.width*dpr),Math.round(dimensions.height*dpr)]);expect(bytes.length).toBeGreaterThan(10000);

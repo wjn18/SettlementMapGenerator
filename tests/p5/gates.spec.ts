@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { selectRenderer } from '../helpers/sidebar';
 import { TERRAIN_GENERATOR_VERSION } from '../../packages/core/dist/index.js';
 
 test('reported town keeps bounded gates and normal approaches across renderers', async ({ page }, info) => {
@@ -29,7 +30,7 @@ test('reported town keeps bounded gates and normal approaches across renderers',
     expect(gate.angles.length).toBeGreaterThan(0); expect(Math.min(...gate.angles)).toBeGreaterThanOrEqual(75 - 1e-4);
   }
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind);
+    await selectRenderer(page, kind);
     expect(await page.evaluate(() => JSON.stringify((window as any).__playground.town))).toBe(saved);
     await page.screenshot({ path: `artifacts/gate-planning/${info.project.name}-${kind}.png` });
   }

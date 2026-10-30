@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask } from '../helpers/sidebar';
 import { readFileSync, existsSync } from 'node:fs';
 // @ts-expect-error Independent fixture conversion is a Node-only helper.
 import { legacyTown } from './legacy-town.mjs';
@@ -27,14 +28,18 @@ test('generation controls, URL, hover, viewport, theme and JSON round trip', asy
   await page.locator('#map').focus(); await page.keyboard.press('ArrowRight');
   expect((await page.evaluate(() => window.__playground.viewport)).centerX).toBeGreaterThan(beforePan.centerX);
   await page.locator('#fit').click(); await expect(page.locator('#zoom-label')).toHaveText('100%');
+  await openSidebarTask(page, 'files');
   const downloadPromise = page.waitForEvent('download'); await page.locator('#export').click(); const download = await downloadPromise;
   const json = readFileSync((await download.path())!, 'utf8'); expect(JSON.parse(json)).toEqual(JSON.parse(original));
+  await openSidebarTask(page, 'generate');
   await page.locator('#seed').fill('12345'); await page.locator('#size').selectOption('6'); await page.locator('#castle').selectOption('false'); await page.locator('#generate').click();
   await expect.poll(() => page.evaluate(() => window.__playground.town.resolved.seed)).toBe(12345);
   await expect(page).toHaveURL(/size=6/);
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'town.json', mimeType: 'application/json', buffer: Buffer.from(json) });
   await expect(page.locator('#status')).toContainText('已导入'); expect(await page.evaluate(() => JSON.stringify(window.__playground.town))).toBe(JSON.stringify(JSON.parse(json)));
   const previousRevision = await page.evaluate(() => window.__playground.revision);
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"schemaVersion":"9"}') });
   await expect(page.locator('#error')).toContainText('导入失败'); expect(await page.evaluate(() => window.__playground.revision)).toBe(previousRevision);
   const canvas = await page.locator('#map canvas').evaluate(c => ({ width: (c as HTMLCanvasElement).width, css: c.getBoundingClientRect().width }));
@@ -44,7 +49,7 @@ test('generation controls, URL, hover, viewport, theme and JSON round trip', asy
 
 test('fixed P1 data render consistently across dev/production and JSON reload', async ({ page }, info) => {
   // These historical baselines belong to the OpenFL migration renderer.
-  await page.setViewportSize({ width: 800, height: 800 }); await page.goto('/?test=1&capture=1&renderer=openfl&districts=false'); await ready(page);
+  await page.setViewportSize({ width: 800, height: 800 }); await page.goto('/?test=1&capture=1&renderer=openfl&districts=false&theme=parchment'); await ready(page);
   for (const [seed, size] of [[42, 15], [1, 6], [12345, 24]]) {
     const fixed = legacyTown(seed, size);
     await page.evaluate(({ town, radius }) => { window.__playground.load(JSON.stringify(town)); window.__playground.setViewport({ centerX: 0, centerY: 0, zoom: 400 / radius }); }, fixed);
@@ -98,5 +103,6 @@ test('resize, DPR update and repeated renderer disposal preserve hit coordinates
 
 test('invalid URL options remain visible and recover through the form', async ({ page }) => {
   await page.goto('/?test=1&seed=0&size=6'); await expect(page.locator('#error')).toContainText('INVALID_OPTIONS');
+  await openSidebarTask(page, 'generate');
   await page.locator('#seed').fill('42'); await page.locator('#generate').click(); await ready(page); await expect(page.locator('#error')).toBeHidden();
 });

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 
@@ -21,19 +22,20 @@ test('six city palettes switch without regeneration, survive reload, and export 
     expect(await page.evaluate(() => (window as any).__playground.scene.background)).toBe(background);
     const scene = await page.evaluate(() => JSON.stringify((window as any).__playground.scene));
     for (const renderer of ['canvas', 'svg', 'openfl']) {
-      await page.locator('#renderer').selectOption(renderer);
+      await selectRenderer(page, renderer);
       expect(await snapshot()).toEqual(before);
       expect(await page.evaluate(() => JSON.stringify((window as any).__playground.scene))).toBe(scene);
       await expect(page.locator('#map canvas, #map svg')).toHaveCount(1);
     }
-    await page.locator('#renderer').selectOption('canvas');
+    await selectRenderer(page, 'canvas');
     await page.screenshot({ path: `artifacts/themes/${info.project.name}-${name}.png` });
   }
   await page.locator('#theme').selectOption('turquoise');
   for (const renderer of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(renderer);
+    await selectRenderer(page, renderer);
     for (const format of ['svg', 'png']) {
       const pending = page.waitForEvent('download');
+      await openSidebarTask(page, 'files');
       await page.locator(format === 'svg' ? '#export-svg' : '#export-image').click();
       const download = await pending, bytes = readFileSync((await download.path())!);
       if (format === 'svg') {
@@ -53,7 +55,7 @@ test('six city palettes switch without regeneration, survive reload, and export 
     }
   }
   await page.locator('#theme').selectOption('fairytale');
-  await page.locator('#renderer').selectOption('svg');
+  await selectRenderer(page, 'svg');
   await expect(page.locator('#map [data-cartography-layer="compass"] text')).toHaveAttribute('fill', '#ffffe5');
   await page.reload(); await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#theme')).toHaveValue('fairytale');
@@ -96,7 +98,7 @@ test('district coloring has a matching legend and preserves the map, camera and 
   expect(await state()).toEqual(before);
   expect(await page.evaluate(() => JSON.stringify((window as any).__playground.scene))).toBe(colored);
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind);
+    await selectRenderer(page, kind);
     expect(await page.evaluate(() => JSON.stringify((window as any).__playground.scene))).toBe(colored);
   }
   const roofs = await page.evaluate(() => {
@@ -109,10 +111,11 @@ test('district coloring has a matching legend and preserves the map, camera and 
     });
   });
   expect(new Set(roofs).size).toBe(3);
+  await openSidebarTask(page, 'files');
   const pending = page.waitForEvent('download'); await page.locator('#export-svg').click();
   const download = await pending, xml = readFileSync((await download.path())!, 'utf8');
   for (const roof of roofs) expect(xml).toContain(roof);
-  await page.locator('#renderer').selectOption('canvas');
+  await selectRenderer(page, 'canvas');
   await page.screenshot({ path: `artifacts/themes/${info.project.name}-districts.png` });
   await page.locator('#district-colors').uncheck();
   await page.reload(); await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');

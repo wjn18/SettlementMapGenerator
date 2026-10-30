@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSidebarTask, selectRenderer } from '../helpers/sidebar';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 
@@ -11,22 +12,26 @@ test('river controls, bridges, three renderers and lossless exports', async ({ p
   const original = await page.evaluate(() => JSON.stringify((window as any).__playground.town));
   const river = JSON.parse(original).river; expect(river.bridges.length).toBeGreaterThan(0);
   for (const kind of ['canvas', 'svg', 'openfl']) {
-    await page.locator('#renderer').selectOption(kind);
+    await selectRenderer(page, kind);
     expect(await page.evaluate(() => JSON.stringify((window as any).__playground.town))).toBe(original);
     await page.screenshot({ path: `artifacts/river/${info.project.name}-${kind}.png` });
   }
   for (const format of ['svg', 'png']) {
+    await openSidebarTask(page, 'files');
     const pending = page.waitForEvent('download'); await page.locator(format === 'svg' ? '#export-svg' : '#export-image').click();
     const download = await pending, data = readFileSync((await download.path())!);
     if (format === 'svg') { expect(data.toString()).toContain('fill="#adc6cb"'); expect(data.toString()).toContain(`L ${river.surface[0].x} ${river.surface[0].y}`); }
     else { const png = PNG.sync.read(data); expect(png.width).toBeGreaterThan(500); expect(data.length).toBeGreaterThan(10000); }
   }
+  await openSidebarTask(page, 'files');
   const pending = page.waitForEvent('download'); await page.locator('#export').click();
   const saved = readFileSync((await (await pending).path())!, 'utf8');
   expect(JSON.parse(saved)).toEqual(JSON.parse(original));
+  await openSidebarTask(page, 'generate');
   await page.locator('#river').selectOption('false'); await page.locator('#generate').click();
   await expect(page).toHaveURL(/river=false/);
   expect(await page.evaluate(() => (window as any).__playground.town.river)).toBeUndefined();
+  await openSidebarTask(page, 'files');
   await page.locator('#file').setInputFiles({ name: 'river.json', mimeType: 'application/json', buffer: Buffer.from(saved) });
   await expect(page.locator('#status')).toContainText('已导入');
   await expect(page.locator('#river')).toHaveValue('true');
