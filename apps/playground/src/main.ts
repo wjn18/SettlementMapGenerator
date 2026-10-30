@@ -1,5 +1,5 @@
 import { deserializeTown, serializeTown, getTownAtlas, createTownAtlas, renameTown, normalizeMapName, estimatePopulation } from '@settlement/core';
-import { GenerationTask } from './generation-task';
+import { GenerationTask, generationStageLabel } from './generation-task';
 import { createThreeD } from './three-d';
 import type { TownData, GenerateOptions, FeatureChoice, Bounds, TownAtlas, PopulationDensity, PopulationEstimate } from '@settlement/core';
 import { buildMapScene, fitViewport, THEMES, layoutCartography, formatMapDistance, normalizeThemeName } from '@settlement/map-scene';
@@ -203,7 +203,10 @@ async function generate(value = options()): Promise<void> {
   sidebar.setGenerating(true);
   $('cancel').hidden = false;
   try {
-    generationCount++; const result = await generation.run(value);
+    generationCount++; const result = await generation.run(value, progress => {
+      if (request !== generationRequest) return;
+      status.textContent = `正在绘制城镇 · 第 ${progress.attempt} 次尝试 · ${generationStageLabel(progress.stage)}已完成`;
+    });
     if (request !== generationRequest) return;
     if (!result.ok) { notifyError(`无法生成地图：${result.error.message}（${result.error.code}）`); return; }
     present(result.town, 'generated');
