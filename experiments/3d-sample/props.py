@@ -6,7 +6,10 @@ build_market is safe to call after the terrain and buildings have been created.
 import math
 import random
 import bpy
+from spatial_index import BoxIndex
 from mathutils import Vector
+from market_clearance import PlacementReservations
+from market_placement import MarketOccupancy
 
 
 COLLECTION = '03_MARKET_LIFE'
@@ -292,14 +295,33 @@ def statue_mesh(materials, footprint):
     return m.create_mesh('Planning statue and exact footprint plinth'),center
 
 
-def build_market(plaza_points, building_polygons, roads, materials, seed=42, features=None, authored_assets=False):
+def build_market(plaza_points, building_polygons, roads, materials, seed=42, features=None, authored_assets=False,
+                 reserved_paths=None, water_polygons=None, person_radius=None,
+                 market_id=None, shared_occupied=None, other_market_polygons=None,
+                 structure_polygons=None):
     """Place reusable market assets; return counts and constraint checks.
 
     Buildings accept polygon lists or dicts with ``points`` / ``polygon`` keys.
     Roads accept dictionaries containing ``points`` and ``width`` (meters).
+    Reserved passages and water polygons exclude the whole person footprint,
+    including bridge landings. Authored pose radius can come from the kit.
     The plaza is never reshaped and no building footprint is modified.
     """
     rng=random.Random(seed)
+    occupancy=MarketOccupancy(shared_occupied,market_id)
+    market_id=occupancy.market_id
+    features=[f for f in features or [] if market_id is None or str(f.get('districtId',''))==market_id]
+    created=[]
+    def place_object(name,data,position,angle,collection,kind):
+        if market_id is not None:
+            name='Market '+market_id+' / '+name.removeprefix('Market ')
+        obj=make_object(name,data,position,angle,collection,kind)
+        if market_id is not None:obj['source_market_id']=market_id
+        created.append(obj.name)
+        radius=occupied_radius if kind=='person' else max(
+            (math.hypot(vertex.co.x,vertex.co.y) for vertex in data.vertices),default=0)+.08
+        occupancy.reserve(position,radius,kind,obj.name)
+        return obj
     plaza=[xy(p) for p in plaza_points]
     if len(plaza)<3:
         return {'stalls':0,'people':0,'well':0,'cart':0,'error':'Plaza has fewer than three vertices'}
@@ -317,6 +339,8 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
         for a,b in zip(points,points[1:]):
             if math.dist(a,b)>.01:
                 road_segments.append((a,b,width))
+    building_index=BoxIndex((i,(min(x for x,y in p),max(x for x,y in p),min(y for x,y in p),max(y for x,y in p))) for i,p in enumerate(polygons))
+    road_index=BoxIndex((i,(min(a[0],b[0])-max(1.8,w*.35),max(a[0],b[0])+max(1.8,w*.35),min(a[1],b[1])-max(1.8,w*.35),max(a[1],b[1])+max(1.8,w*.35))) for i,(a,b,w) in enumerate(road_segments))
 
     collection=bpy.data.collections.get(COLLECTION)
     if collection is None:
@@ -343,22 +367,29 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
     amin,amax=min(a for a,b in projected),max(a for a,b in projected)
     bmin,bmax=min(b for a,b in projected),max(b for a,b in projected)
     occupied=[]
+    structures=PlacementReservations(water_polygons=structure_polygons)
     def clear_buildings(p, margin=.8):
-        return all(not inside(p,poly) and boundary_distance(p,poly)>=margin for poly in polygons)
+        near=building_index.query((p[0]-margin,p[0]+margin,p[1]-margin,p[1]+margin))
+        return all(not inside(p,polygons[i]) and boundary_distance(p,polygons[i])>=margin for i in near)
+    def clear_roads(p,threshold,extra=0):
+        near=road_index.query((p[0]-extra,p[0]+extra,p[1]-extra,p[1]+extra))
+        return all(segment_distance(p,road_segments[i][0],road_segments[i][1])>threshold(road_segments[i][2]) for i in near)
     def clear_assets(p, radius):
-        return all(math.dist(p,at)>radius+r for at,r in occupied)
+        return occupancy.clear(p,radius) and all(math.dist(p,at)>radius+r for at,r in occupied)
     def valid_plaza(p, margin):
-        return inside(p,plaza) and boundary_distance(p,plaza)>margin and clear_buildings(p,margin)
+        return (inside(p,plaza) and boundary_distance(p,plaza)>margin
+                and clear_buildings(p,margin) and structures.clear(p,margin+.35))
     def valid_footprint(p, w, d, rotation, margin=.2):
+        if not occupancy.clear(p,math.hypot(w,d)/2+margin):return False
         ca,sa=math.cos(rotation),math.sin(rotation)
         for lx,ly in ((-w/2,-d/2),(w/2,-d/2),(w/2,d/2),(-w/2,d/2),(0,0),(-w/2,0),(w/2,0),(0,-d/2),(0,d/2)):
             q=(p[0]+ca*lx-sa*ly,p[1]+sa*lx+ca*ly)
             if not valid_plaza(q,margin):
                 return False
         # Do not obstruct the actual carriageway if one crosses the plaza.
-        return all(segment_distance(p,a,b)>min(width*.33,1.5)+min(w,d)/2 for a,b,width in road_segments)
+        return clear_roads(p,lambda width:min(width*.33,1.5)+min(w,d)/2,min(w,d)/2)
 
-    stats={'stalls':0,'people':0,'well':0,'statues':0,'cart':0,'cargo_groups':0,'people_building_clearance_m':.8,'retained_center_corridor_m':3.2,'statue_planning_locations':[], 'fountain_reserved_locations':[]}
+    stats={'marketId':market_id,'stalls':0,'people':0,'well':0,'statues':0,'cart':0,'cargo_groups':0,'people_building_clearance_m':.8,'retained_center_corridor_m':3.2,'statue_planning_locations':[], 'fountain_reserved_locations':[]}
     # Fountains are constructed after market life. Reserve their complete
     # source footprints now, including a small walking clearance, so neither
     # stalls, cargo nor people are later covered by a planned basin.
@@ -381,7 +412,7 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
         if len(footprint)<3:
             continue
         statue_data,location=statue_mesh(mats,footprint)
-        obj=make_object('Planning statue '+str(feature.get('id',stats['statues'])),statue_data,location,0,collection,'statue')
+        obj=place_object('Planning statue '+str(feature.get('id',stats['statues'])),statue_data,location,0,collection,'statue')
         obj['source_feature_id']=str(feature.get('id',''))
         obj['input_footprint_xy']=[n for p in footprint for n in p]
         occupied.append((location,max(math.dist(location,p) for p in footprint)+.15))
@@ -424,7 +455,7 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
             continue
         for p,rotation,a,b in rows[0][1]:
             width=rng.uniform(3.15,3.55)
-            make_object('Market stall %02d'%(stats['stalls']+1),stall_mesh(mats,width,stats['stalls'],rng,include_goods=not authored_assets),p,rotation,collection,'market_stall')
+            place_object('Market stall %02d'%(stats['stalls']+1),stall_mesh(mats,width,stats['stalls'],rng,include_goods=not authored_assets),p,rotation,collection,'market_stall')
             occupied.append((p,1.97))
             stall_locations.append((p,rotation,width))
             stats['stalls']+=1
@@ -434,8 +465,8 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
     if not stats['statues'] and not stats['fountain_reserved_locations'] and (amax-amin)*(bmax-bmin)>190:
         for a,b in ((0,3.5),(0,-3.5),(amin+3.2,3.2),(amax-3.2,-3.2)):
             p=world(a,b)
-            if valid_plaza(p,1.5) and clear_assets(p,1.6) and all(segment_distance(p,x,y)>max(1.8,w*.35) for x,y,w in road_segments):
-                make_object('Market well',well_mesh(mats),p,angle,collection,'well')
+            if valid_plaza(p,1.5) and clear_assets(p,1.6) and clear_roads(p,lambda w:max(1.8,w*.35)):
+                place_object('Market well',well_mesh(mats),p,angle,collection,'well')
                 occupied.append((p,1.55)); stats['well']=1
                 break
     cart_data=None
@@ -449,7 +480,7 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
             continue
         if valid_footprint(p,1.8,4.3,rot) and clear_assets(p,2.1):
             cart_data=cart_mesh(mats)
-            make_object('Market hand cart',cart_data,p,rot,collection,'hand_cart')
+            place_object('Market hand cart',cart_data,p,rot,collection,'hand_cart')
             occupied.append((p,2.1)); stats['cart']=1
     for attempt in range(300):
         if stats['cargo_groups']>=5:
@@ -458,23 +489,46 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
         if abs(b)<2.4:
             continue
         p=world(a,b)
-        if valid_plaza(p,.8) and clear_assets(p,.85) and all(segment_distance(p,x,y)>max(1.2,w*.30) for x,y,w in road_segments):
+        if valid_plaza(p,.8) and clear_assets(p,.85) and clear_roads(p,lambda w:max(1.2,w*.30)):
             m=Mesh(mats)
             barrel(m,(-.25,0,0),.9)
             crate(m,(.42,.07,0),(.54,.47,.48))
             if stats['cargo_groups']%2:
                 crate(m,(.42,.07,.5),(.48,.42,.4))
-            make_object('Market cargo %02d'%stats['cargo_groups'],m.create_mesh('Cargo cluster'),p,rng.random()*math.tau,collection,'cargo')
+            place_object('Market cargo %02d'%stats['cargo_groups'],m.create_mesh('Cargo cluster'),p,rng.random()*math.tau,collection,'cargo')
             occupied.append((p,.8)); stats['cargo_groups']+=1
     figures=[person_mesh(mats,i) for i in range(8)]
+    reservations=PlacementReservations(reserved_paths,water_polygons)
+    other_markets=PlacementReservations(water_polygons=other_market_polygons)
+    native_radius=max(math.hypot(vertex.co.x,vertex.co.y) for figure in figures for vertex in figure.vertices)*1.85/1.68
+    if person_radius is not None and (not math.isfinite(person_radius) or person_radius<0):
+        raise ValueError('Authored person footprint radius must be finite and nonnegative.')
+    occupied_radius=max(native_radius,person_radius if person_radius is not None else (.8 if authored_assets else native_radius))+.08
+    stats['people_footprint_radius_m']=occupied_radius
+    stats['reserved_passage_count']=len(reservations.paths)
+    stats['reserved_water_count']=len(reservations.water)
+    stats['reserved_market_count']=len(other_markets.water)
+    stats['reserved_structure_count']=len(structures.water)
+    stats['people_reservation_rejections']=0
+    stats['people_market_reservation_rejections']=0
+    stats['people_structure_reservation_rejections']=0
     people=[]
     # Roads provide overflow, but keep all figures near this selected plaza.
     radius=max(amax-amin,bmax-bmin)*.62+14
     segments=[s for s in road_segments if segment_distance(center,s[0],s[1])<radius]
     def add_person(p,facing,spacing=.8):
-        if not clear_buildings(p,.8) or not clear_assets(p,.34) or any(math.dist(p,q)<spacing for q in people):
+        if not structures.clear(p,occupied_radius+.15):
+            stats['people_structure_reservation_rejections']+=1
             return False
-        obj=make_object('Market visitor %03d'%(len(people)+1),figures[len(people)%len(figures)],p,facing,collection,'person')
+        if not other_markets.clear(p,occupied_radius):
+            stats['people_market_reservation_rejections']+=1
+            return False
+        if not reservations.clear(p,occupied_radius):
+            stats['people_reservation_rejections']+=1
+            return False
+        if not occupancy.clear(p,occupied_radius) or not clear_buildings(p,.8) or not clear_assets(p,.34) or any(math.dist(p,q)<spacing for q in people):
+            return False
+        obj=place_object('Market visitor %03d'%(len(people)+1),figures[len(people)%len(figures)],p,facing,collection,'person')
         scale=rng.uniform(1.60,1.85)/1.68
         obj.scale=(scale,scale,scale)
         people.append(p)
@@ -530,5 +584,16 @@ def build_market(plaza_points, building_polygons, roads, materials, seed=42, fea
     stats['people']=len(people)
     stats['plaza_bounds_m']=[round(amax-amin,2),round(bmax-bmin,2)]
     stats['people_clearance_verified']=all(clear_buildings(p,.8) for p in people)
-    stats['objects']=len(collection.objects)
+    stats['people_reserved_clearance_verified']=all(reservations.clear(p,occupied_radius) for p in people)
+    stats['people_market_clearance_verified']=all(other_markets.clear(p,occupied_radius) for p in people)
+    stats['people_structure_clearance_verified']=all(structures.clear(p,occupied_radius+.15) for p in people)
+    stats['objects']=len(created)
+    stats['nativeObjectCount']=len(created)
+    stats['objectNames']=created
+    stats['occupiedObjects']=[dict(record) for record in occupancy.records or []
+                              if record.get('marketId')==market_id and record.get('object') in created]
+    stats['capacityStatus']='populated' if stats['stalls'] else ('limited' if created else 'empty')
+    stats['emptyReason']='No room remains after source footprints, passages and shared market occupancy are reserved.' if not created else None
+    if not stats['stalls'] and created:
+        stats['capacityReason']='No safe continuous stall row fits; usable public space retains its other planned activity.'
     return stats

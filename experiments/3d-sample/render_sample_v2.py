@@ -3,7 +3,7 @@
 Run with Blender --background --factory-startup --python this_file -- --preview
 All horizontal coordinates come directly from selection.json, in map metres.
 """
-import bpy, sys, os, json, math, random, hashlib, argparse, copy
+import bpy, sys, os, json, math, random, hashlib, argparse, copy, time
 from pathlib import Path
 from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
@@ -19,6 +19,7 @@ args.add_argument('--name', default='market-quarter')
 args.add_argument('--resolution', type=int, default=3200)
 args.add_argument('--frame-entities', action='store_true', help='Fit plan entities instead of the empty ground extent.')
 args.add_argument('--preview', action='store_true')
+args.add_argument('--build-only', action='store_true', help='Save the scene for validation before rendering.')
 args.add_argument('--no-props', action='store_true')
 args.add_argument('--angle', type=float, default=225)
 args.add_argument('--elevation', type=float, default=48)
@@ -28,6 +29,11 @@ args.add_argument('--legacy-assets', action='store_true', help='Use the earlier 
 opts = args.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT = opts.output_dir.resolve()
 OUT.mkdir(parents=True, exist_ok=True)
+build_started=time.perf_counter();build_times={}
+def measure(name,action):
+    started=time.perf_counter();value=action();build_times[name]=time.perf_counter()-started
+    print('BUILD_STAGE '+name+' '+str(round(build_times[name],3)),flush=True)
+    return value
 for source_name in ('selection.json','source-town.json'):
     source_path = (opts.input_dir/source_name).resolve()
     if source_path != OUT/source_name:
@@ -52,7 +58,10 @@ for old in list(bpy.data.collections):
 def collection(name):
     c = bpy.data.collections.get(name)
     if not c:
-        c = bpy.data.collections.new(name); bpy.context.scene.collection.children.link(c)
+        c = bpy.data.collections.new(name)
+        # The dense native and authored building collections are attached only
+        # after all geometry, replacements and decoration have been assembled.
+        if name not in ('01_BUILDINGS','02_CITY_WALL'):bpy.context.scene.collection.children.link(c)
     return c
 
 def put(obj, coll):
@@ -160,35 +169,68 @@ if not opts.legacy_assets:
     asset_library=AssetLibrary(opts.asset_library or DEFAULT_LIBRARY)
     api['assetLibrary']=asset_library
 from buildings_v2 import build_buildings
-build_records=build_buildings(data,api)
-if asset_library:asset_library.architecture(data,build_records)
+build_records=measure('native_buildings',lambda:build_buildings(data,api))
+if asset_library:measure('authored_architecture',lambda:asset_library.architecture(data,build_records,list(collection('01_BUILDINGS').all_objects)))
 print('V2 buildings:',len(build_records),flush=True)
 
 # The crop is an explicit extraction of the plan, never a rearrangement.
-crop=points(data['cropPolygon']);extrude('Study_ground',crop,-.8,0,M['ground'],'00_GROUND')
+ground_wall_started=time.perf_counter()
+crop=points(data['cropPolygon'])
+river_stats={'enabled':False};estuary_stats={'enabled':False};river_plan=None
+if source_data.get('river'):
+    from river_integration import build_river
+    if source_data.get('terrain',{}).get('coast'):
+        from estuary_geometry import plan_estuary
+        river_plan=measure('estuary_geometry',lambda:plan_estuary(source_data,opts.plan_scale))
+    river_stats=measure('river',lambda:build_river(source_data,api,asset_library,opts.plan_scale,plan=river_plan))
+    estuary_stats=river_stats.pop('estuary',{'enabled':False})
+else:
+    extrude('Study_ground',crop,-.8,0,M['ground'],'00_GROUND')
 land_materials={
     'Farm':material('Planned farm land / dry ochre wash',(.76,.735,.58)),
     'Park':material('Planned park land / sage wash',(.69,.72,.58)),
 }
 for district in data['districts']:
-    if district['wardType']=='Market':extrude('Original_market_square',points(district['points']),.005,.025,M['road'],'00_GROUND')
+    if district['wardType']=='Market':
+        plaza=extrude('Original_market_square_'+district['id'],points(district['points']),.005,.025,M['road'],'00_GROUND')
+        plaza['source_market_id']=district['id'];plaza['source_district_id']=district['id'];plaza['asset_kind']='market_plaza'
     elif data.get('scope')=='whole-city' and district['wardType'] in land_materials:
         land=extrude('Original_land_'+district['id'],points(district['points']),.001,.003,land_materials[district['wardType']],'00_GROUND')
         land['source_district_id']=district['id'];land['asset_kind']='planned_land_use'
+from road_surface import ribbon_geometry,junction_geometry
+bridge_roads={b['roadId']:b for b in source_data.get('river',{}).get('bridges',[])}
 for road in data['roads']:
     rp=points(road['points']);w=road['width']
-    verts=[];faces=[]
-    for a,b in zip(rp,rp[1:]):
-        d=math.dist(a,b)
-        if d<.001:continue
-        nx=-(b[1]-a[1])/d*w/2;ny=(b[0]-a[0])/d*w/2;k=len(verts)
-        verts.extend([(a[0]+nx,a[1]+ny,.035),(a[0]-nx,a[1]-ny,.035),(b[0]-nx,b[1]-ny,.035),(b[0]+nx,b[1]+ny,.035)])
-        faces.append((k,k+1,k+2,k+3))
-    mesh('Original_road_'+road['id'],verts,faces,M['road'],'00_GROUND')
+    verts,faces=ribbon_geometry(rp,w)
+    mat=M['road'];uv=None
+    if road['id'] in bridge_roads:
+        from bridge_geometry import walking_geometry
+        verts,faces=walking_geometry(rp,w)
+        mat=asset_library.materials['stone'].copy();mat.name='Stone arch paving / '+road['id']
+        nodes=mat.node_tree.nodes;links=mat.node_tree.links
+        tex=nodes.new('ShaderNodeTexBrick');coords=nodes.new('ShaderNodeTexCoord')
+        links.new(coords.outputs['UV'],tex.inputs['Vector'])
+        tex.offset=0;tex.inputs['Scale'].default_value=1
+        tex.inputs['Brick Width'].default_value=.65;tex.inputs['Row Height'].default_value=.55
+        tex.inputs['Mortar Size'].default_value=.012;tex.inputs['Mortar Smooth'].default_value=.002
+        tex.inputs['Color1'].default_value=(.58,.56,.48,1)
+        tex.inputs['Color2'].default_value=(.72,.69,.59,1)
+        tex.inputs['Mortar'].default_value=(.30,.29,.25,1)
+        links.new(tex.outputs['Color'],nodes.get('Principled BSDF').inputs['Base Color'])
+        a,b=rp[0],rp[-1];length=math.dist(a,b);u=((b[0]-a[0])/length,(b[1]-a[1])/length);n=(-u[1],u[0])
+        uv=[[(verts[j][0]*u[0]+verts[j][1]*u[1],verts[j][0]*n[0]+verts[j][1]*n[1]) for j in face] for face in faces]
+    surface=mesh('Original_road_'+road['id'],verts,faces,mat,'00_GROUND',uv);surface['road_surface_version']=3
+    if road['id'] in bridge_roads:
+        surface['source_bridge_id']=bridge_roads[road['id']]['id'];surface['source_road_id']=road['id']
+        surface['asset_kind']='bridge_walkway'
+        surface['bridge_style']='stone-arch'
+jv,jf,road_junctions=junction_geometry([{'points':points(r['points']),'width':r['width']} for r in data['roads']])
+if jf:
+    junctions=mesh('Road_intersection_surfaces',jv,jf,M['road'],'00_GROUND');junctions['asset_kind']='road_junction_surface'
 
 def wall_span(a,b,name,height=12.0,base=0.0):
     d=math.dist(a,b)
-    if d<.1:return
+    if d<1e-7:return
     u=Vector(((b[0]-a[0])/d,(b[1]-a[1])/d,0));v=Vector((-u.y,u.x,0));th=2.5
     p=[(a[0]+v.x*th/2,a[1]+v.y*th/2),(a[0]-v.x*th/2,a[1]-v.y*th/2),(b[0]-v.x*th/2,b[1]-v.y*th/2),(b[0]+v.x*th/2,b[1]+v.y*th/2)]
     extrude(name,p,base,height,M['stone'],'02_CITY_WALL')
@@ -216,7 +258,7 @@ for wall in data['walls']:
     for i,(a,b) in enumerate(segment_pairs):
         if i>=len(active) or not active[i]:continue
         d=math.dist(a,b)
-        if d<.01:continue
+        if d<1e-7:continue
         # Inactive city-wall gaps stay unchanged. Explicit castle gates retain
         # full wall coverage above the opening rather than filling it at ground.
         cuts={0.,1.}
@@ -227,10 +269,11 @@ for wall in data['walls']:
             aa=(a[0]+(b[0]-a[0])*lo,a[1]+(b[1]-a[1])*lo);bb=(a[0]+(b[0]-a[0])*hi,a[1]+(b[1]-a[1])*hi)
             base=4.4 if (lo+hi)/2<start or (lo+hi)/2>end else 0.
             wall_span(aa,bb,wall['id']+'_segment_%d_%d'%(i,j),base=base);wall_stats.append([aa,bb])
-    for i,q in enumerate(points(wall.get('towerPoints',[]))):
+    for i,q in enumerate(points(wall.get('renderTowerPoints',wall.get('towerPoints',[])))):
         radius=min([4.3]+[math.dist(q,g)*.45 for g in gates]);tower_scale=radius/4.3
         sides=12;poly=[(q[0]+radius*math.cos(t*2*math.pi/sides),q[1]+radius*math.sin(t*2*math.pi/sides)) for t in range(sides)]
-        extrude(wall['id']+'_tower_'+str(i),poly,0,16.7,M['stone'],'02_CITY_WALL')
+        body=extrude(wall['id']+'_tower_'+str(i),poly,0,16.7,M['stone'],'02_CITY_WALL')
+        body['source_wall_id']=wall['id'];body['source_tower_vertex_id']=wall.get('renderTowerVertexIds',wall.get('towerVertexIds',[]))[i];body['tower_radius']=radius
         ring=Batch(wall['id']+'_tower_crenels_'+str(i),M['stone_plain'],'02_CITY_WALL')
         for t in range(12):
             ang=t*math.tau/12;u=Vector((-math.sin(ang),math.cos(ang),0));v=Vector((math.cos(ang),math.sin(ang),0))
@@ -272,26 +315,40 @@ for wall in data['walls']:
             for face in [(0,1,2,3),(7,6,5,4),(0,4,5,1),(1,5,6,2),(2,6,7,3),(3,7,4,0)]:af.append(tuple(ix+j for j in face))
         mesh('Gate_arch_'+wall['id']+str(i),av,af,M['stone_plain'],'02_CITY_WALL')
 print('Built wall spans:',len(wall_stats),flush=True)
+build_times['ground_and_walls']=time.perf_counter()-ground_wall_started
 
-props={}
-if not opts.no_props and data.get('plaza'):
-    from props import build_market
-    props=build_market(points(data['plaza']['points']),[points(b['points']) for b in data['buildings']],data['roads'],M,seed=7,features=data.get('features',[]),authored_assets=bool(asset_library))
-    print('Market life:',props,flush=True)
+from market_integration import build_markets,finalize_markets
+props,market_stats=measure('market',lambda:build_markets(data,api,asset_library,opts.plan_scale,enabled=not opts.no_props,gate_mounts=gate_mounts))
+print('Market life:',props,flush=True)
 
 from planning_features import build_planning_features
-feature_stats=build_planning_features(data,api)
+feature_stats=measure('planning_features',lambda:build_planning_features(data,api))
 print('Planning features:',feature_stats,flush=True)
 
 from shopfronts_v2 import build_shopfronts
-shop_stats=build_shopfronts(data,build_records,api)
+shop_stats=measure('shopfronts',lambda:build_shopfronts(data,build_records,api))
 print('Shopfronts:',shop_stats,flush=True)
 asset_stats={'enabled':False}
+harbor_stats={'enabled':False}
 if asset_library:
-    asset_stats=asset_library.decorate(data,build_records,feature_stats,props,shop_stats,gate_mounts)
+    asset_stats=measure('authored_decoration',lambda:asset_library.decorate(data,build_records,feature_stats,props,shop_stats,gate_mounts))
+if source_data.get('terrain',{}).get('coast') or any(d.get('waterbody')=='river' for d in source_data.get('terrain',{}).get('docks',[])):
+    from harbor_integration import build_harbor
+    harbor_stats=measure('harbor',lambda:build_harbor(source_data,build_records,api,asset_library,opts.plan_scale,terrain_plan=river_plan))
+    asset_stats=asset_library.report()
+from illustration_v2 import apply_illustration
+building_collection=collection('01_BUILDINGS')
+bpy.context.scene.collection.children.link(building_collection)
+wall_collection=bpy.data.collections.get('02_CITY_WALL')
+if wall_collection:bpy.context.scene.collection.children.link(wall_collection)
+if asset_library:bpy.context.scene.collection.children.link(asset_library.container)
+finalize_markets(data,market_stats,asset_library)
+props['objects']=sum(row['props']['objects'] for row in market_stats['plazas'])
+if asset_library:
+    asset_stats=asset_library.report()
     (OUT/'asset-integration.json').write_text(json.dumps(asset_stats,ensure_ascii=False,indent=2),encoding='utf-8')
     print('Authored assets:',asset_stats['usedVariants'],'variants;',asset_stats['meshPlacements'],'meshes;',len(asset_stats['skippedMounts']),'skipped mounts',flush=True)
-from illustration_v2 import apply_illustration
+bpy.context.view_layer.update()
 illustration_stats=apply_illustration(bpy.context.scene)
 print('Illustration:',illustration_stats,flush=True)
 # Native pigment and ink treatment; all plan geometry is retained.
@@ -325,7 +382,7 @@ cam.location=c+direction*550;cam.rotation_euler=(c-cam.location).to_track_quat('
 bpy.context.view_layer.update()
 allpts=[]
 for ob in scene.objects:
-    if ob.type=='MESH' and not (opts.frame_entities and ob.name=='Study_ground'):
+    if ob.type=='MESH' and not (opts.frame_entities and (ob.name=='Study_ground' or ob.get('environment_extent'))):
         allpts.extend([ob.matrix_world@v.co for v in ob.data.vertices])
 inv=cam.matrix_world.inverted();proj=[inv@p for p in allpts];minx=min(p.x for p in proj);maxx=max(p.x for p in proj);miny=min(p.y for p in proj);maxy=max(p.y for p in proj)
 shift=cam.matrix_world.to_3x3()@Vector(((minx+maxx)/2,(miny+maxy)/2,0));cam.location+=shift
@@ -350,7 +407,7 @@ if asset_library:
     fine_roles={'timber_panel','house_window','house_entrance','cathedral_window','cathedral_entrance',
                 'special_facade','patriciate_cornice','ridge_detail','shop_goods','shop_sign','market_goods','planned_ground_material'}
     for obj in list(scene.objects):
-        if obj.type=='MESH' and not obj.get('authored_asset_id') and obj.name!='Study_ground' and not obj.name.startswith(('Original_road_','Original_land_','Planning_grove_')) and obj.name!='Original_market_square' and obj.get('asset_mount_role') not in fine_roles:
+        if obj.type=='MESH' and (not obj.get('authored_asset_id') or obj.get('asset_mount_role')=='castle_keep_shell' or obj.get('ink_structural')) and obj.name!='Study_ground' and not obj.get('environment_extent') and obj.get('asset_kind') not in ('road_junction_surface','market_plaza') and not obj.name.startswith(('Original_road_','Original_land_','Planning_grove_')) and obj.name!='Original_market_square' and obj.get('asset_mount_role') not in fine_roles:
             ink_collection.objects.link(obj)
 for line_set in (lines,seams):
     # Road ribbons overlap at junctions; their mesh borders are construction seams,
@@ -361,6 +418,7 @@ for line_set in (lines,seams):
 scene.render.line_thickness=1.0
 if asset_library:
     scene['authored_ink_overlay']=True
+    scene['authored_visibility_indices']=1
     scene.render.use_freestyle=False
 scene.render.filepath=str(OUT/('render-preview.png' if opts.preview else opts.name+'-render.png'))
 scene['source_selection']='selection.json';scene['structure_policy']='Exact building wall footprints and original plan roads; vertical architecture is designed.'
@@ -370,9 +428,12 @@ if asset_library:
     helper.clear();helper.write((HERE/'render_pipeline.py').read_text(encoding='utf-8'))
     entry=bpy.data.texts.get('Render with ink.py') or bpy.data.texts.new('Render with ink.py')
     entry.clear();entry.write("import bpy\nfrom pathlib import Path\nscope = {'__name__': 'embedded_ink_renderer'}\nexec(bpy.data.texts['render_pipeline.py'].as_string(), scope)\nbpy.context.scene.render.filepath = str(Path(bpy.data.filepath).with_name('render-with-ink.png'))\nscope['render_with_ink'](bpy.context.scene)\n")
-(OUT/'scene-manifest.json').write_text(json.dumps({'buildings':build_records,'wallSpans':wall_stats,'props':props,'planningFeatures':feature_stats,'shopfronts':shop_stats,'assetIntegration':asset_stats,'illustration':illustration_stats,'revision':'v3-assets' if asset_library else 'v2','scope':data.get('scope','selection'),'camera':{'azimuth':opts.angle,'elevation':opts.elevation},'source':data.get('source'),'horizontalScale':opts.plan_scale,'notes':'All plan XY coordinates and road widths receive the same reversible uniform scale. Building wall footprints are exact under inverse mapping; floors, facades, roofs and props are designed interpretations.'},ensure_ascii=False,indent=2),encoding='utf-8')
-bpy.ops.wm.save_as_mainfile(filepath=str(OUT/(opts.name+'.blend')))
-print('Rendering',scene.render.filepath,scene.cycles.device,flush=True)
-from render_pipeline import render_with_ink
-render_with_ink(scene)
+(OUT/'scene-manifest.json').write_text(json.dumps({'roadSurfaces':{'version':4,'junctions':road_junctions},'buildings':build_records,'wallSpans':wall_stats,'props':props,'markets':market_stats,'planningFeatures':feature_stats,'shopfronts':shop_stats,'assetIntegration':asset_stats,'harbor':harbor_stats,'river':river_stats,'estuary':estuary_stats,'illustration':illustration_stats,'revision':'v8-multiple-markets','scope':data.get('scope','selection'),'camera':{'azimuth':opts.angle,'elevation':opts.elevation},'source':data.get('source'),'horizontalScale':opts.plan_scale,'notes':'All plan XY coordinates and road widths receive the same reversible uniform scale. Building wall footprints are exact under inverse mapping; floors, facades, roofs and props are designed interpretations.'},ensure_ascii=False,indent=2),encoding='utf-8')
+measure('save_scene',lambda:bpy.ops.wm.save_as_mainfile(filepath=str(OUT/(opts.name+'.blend'))))
+(OUT/'build-timing.json').write_text(json.dumps({'seconds':time.perf_counter()-build_started,'stages':build_times,'buildings':len(build_records),'objects':len(scene.objects)},indent=2),encoding='utf-8')
+print('SCENE_BUILD_READY',flush=True)
+if not opts.build_only:
+    print('Rendering',scene.render.filepath,scene.cycles.device,flush=True)
+    from render_pipeline import render_with_ink
+    render_with_ink(scene)
 print('FINISHED',flush=True)

@@ -144,8 +144,11 @@ class Shape(Mesh):
                             self.beam((x,yy,zz),(x-sign*width/2/rows,yy,zz+rise/rows),.010,'ink',4)
         for y in (-length/2, length/2):
             self.path([(-width/2,y,z),(0,y,z+rise),(width/2,y,z)],.065,'limestone')
-        for y in [(-length/2 + .22 + i*.44) for i in range(math.ceil(length/.44))]:
-            self.rings((0,y,z+rise),[(0,.13,.21),(.12,.10,.19)],'limestone',8)
+        cap_count=max(1,math.ceil(length/.44))
+        cap_pitch=length/cap_count
+        for i in range(cap_count):
+            y=-length/2+(i+.5)*cap_pitch
+            self.rings((0,y,z+rise),[(0,.13,cap_pitch*.477),(.12,.10,cap_pitch*.432)],'limestone',8)
 
 
 def arch_outline(width, spring, pointed=True, x=0, z=0, count=16):

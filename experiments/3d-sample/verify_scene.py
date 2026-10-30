@@ -38,6 +38,7 @@ if not math.isfinite(scale) or scale <= 0:
 tol = opts.tolerance
 bpy.ops.wm.open_mainfile(filepath=str(blend_path))
 depsgraph = bpy.context.evaluated_depsgraph_get()
+objects_by_name = {o.name: o for o in bpy.context.scene.objects}
 failures = []
 
 
@@ -93,27 +94,8 @@ def bottom_ring(obj):
 
 
 def polygon_comparison(original, actual):
-    # A roof ridge may insert collinear base vertices. Compare the actual border,
-    # not vertex count/order. Midpoints also catch edges that cut across corners.
-    actual_samples = actual + [((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in edges(actual)]
-    source_samples = original + [((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in edges(original)]
-    forward = max(distance_to_boundary(p, original) for p in actual_samples)
-    reverse = max(distance_to_boundary(p, actual) for p in source_samples)
-    area0, area1 = abs(signed_area(original)), abs(signed_area(actual))
-    center_error = math.dist(centroid(original), centroid(actual))
-    area_error = abs(area1 - area0)
-    area_tol = max(1e-4, area0 * 1e-5)
-    return {
-        'passed': max(forward, reverse) < tol and center_error < tol and area_error <= area_tol,
-        'sourceVertexCount': len(original), 'actualBaseVertexCount': len(actual),
-        'maxActualToSourceBoundaryErrorPlanUnits': forward,
-        'maxSourceToActualBoundaryErrorPlanUnits': reverse,
-        'centroidErrorPlanUnits': center_error,
-        'sourceAreaPlanUnitsSquared': area0, 'restoredActualAreaPlanUnitsSquared': area1,
-        'actualSceneAreaSquared': area1 * scale * scale,
-        'areaAbsoluteErrorPlanUnitsSquared': area_error,
-        'areaTolerancePlanUnitsSquared': area_tol,
-    }
+    from footprint_geometry import compare_footprints
+    return compare_footprints(original,actual,scale,tol)
 
 
 source_vertices = {v['id']: (v['x'], v['y']) for v in source['vertices']}
@@ -193,7 +175,7 @@ if whole_city:
 
 building_results = []
 for bid, building in expected_buildings.items():
-    obj = bpy.data.objects.get(bid + '_footprint_wall')
+    obj = objects_by_name.get(bid + '_footprint_wall')
     if not obj:
         check(False, f'Missing building object: {bid}')
         continue
@@ -335,7 +317,7 @@ actual_road_ids = [o.name.removeprefix('Original_road_') for o in bpy.context.sc
 check(len(expected_road_ids) == len(set(expected_road_ids)), 'The selection contains duplicate road IDs.')
 check(sorted(expected_road_ids) == sorted(actual_road_ids), 'Actual road IDs differ from the selected IDs.')
 for road in selection.get('roads', []):
-    obj = bpy.data.objects.get('Original_road_' + road['id'])
+    obj = objects_by_name.get('Original_road_' + road['id'])
     if not obj:
         check(False, f'Missing planned road: {road["id"]}')
         continue
@@ -343,27 +325,61 @@ for road in selection.get('roads', []):
     expected = []
     for a, b in zip(ps, ps[1:]):
         length = math.dist(a, b)
-        if length * scale < 0.001:
+        if length == 0:
             continue
         nx, ny = -(b[1] - a[1]) / length * road['width'] / 2, (b[0] - a[0]) / length * road['width'] / 2
         expected.extend([(a[0] + nx, a[1] + ny), (a[0] - nx, a[1] - ny), (b[0] - nx, b[1] - ny), (b[0] + nx, b[1] + ny)])
-    actual = [(p.x / scale, p.y / scale) for p in world_vertices(obj)]
-    max_error = max([min(math.dist(p, q) for q in expected) for p in actual] + [min(math.dist(p, q) for q in actual) for p in expected]) if actual and expected else 0.0
-    passed = len(actual) == len(expected) and max_error < tol
-    check(passed, f'Road centerline or width differs from the scaled source: {road["id"]}')
+    road_vertices=world_vertices(obj)
+    actual = [(p.x / scale, p.y / scale) for p in road_vertices]
+    joined=obj.get('road_surface_version',0)>=2
+    prefix=actual[:len(expected)]
+    max_error=max((math.dist(p,q) for p,q in zip(prefix,expected)),default=0)
+    added=actual[len(expected):]
+    radius_error=max((min(distance_to_segment(p,a,b) for a,b in zip(ps,ps[1:]))-road['width']/2 for p in added),default=0)
+    passed=len(prefix)==len(expected) and max_error<tol and (len(actual)==len(expected) or joined and radius_error<tol)
+    road_checks={'sourceWidthAndCoordinates':passed}
+    coverage=None
+    if joined:
+        from planar_coverage import planar_coverage
+        obj.data.calc_loop_triangles()
+        triangles=[[(road_vertices[i].x,road_vertices[i].y) for i in triangle.vertices] for triangle in obj.data.loop_triangles]
+        samples=ps+[tuple((a[i]+b[i])/2 for i in (0,1)) for a,b in zip(ps,ps[1:])]
+        coverage=planar_coverage([(p[0]*scale,p[1]*scale) for p in samples],triangles,tol*scale)
+        upward=all(f.normal.z>0 for f in obj.data.polygons)
+        arch_bridge=manifest.get('river',{}).get('version',1)>=2 and any(b['roadId']==road['id'] for b in source.get('river',{}).get('bridges',[]))
+        if arch_bridge:
+            from bridge_geometry import height_at
+            path=[(x*scale,y*scale) for x,y in ps]
+            correct_height=all(abs(p.z-height_at((p.x,p.y),path))<tol for p in road_vertices)
+        else:correct_height=all(abs(p.z-.035)<tol for p in road_vertices)
+        road_checks.update(centerlineCoverage=coverage['passed'],upwardFaces=upward,height=correct_height)
+        if obj.get('road_surface_version',0)>=3:
+            from harbor_geometry import area,subtract_convex
+            polygons=[[(road_vertices[i].x,road_vertices[i].y) for i in f.vertices] for f in obj.data.polygons]
+            max_overlap=0
+            for i,p in enumerate(polygons):
+                for q in polygons[:i]:
+                    overlap=area(p)-sum(area(part) for part in subtract_convex(p,q))
+                    max_overlap=max(max_overlap,overlap)
+            # Bound the area effect of float32 edge storage using the existing
+            # positional tolerance, rather than accepting overlapping ribbons.
+            road_checks['nonOverlappingPaving']=max_overlap<tol*road['width']*scale
+    passed=all(road_checks.values())
+    failed_checks=[name for name,ok in road_checks.items() if not ok]
+    check(passed, f'Road surface verification failed: {road["id"]} ({", ".join(failed_checks)})')
     road_results.append({'id': road['id'], 'sourceId': road.get('sourceId', road['id']), 'passed': passed,
         'originalWidthPlanUnits': road['width'], 'expectedWidthSceneUnits': road['width'] * scale,
-        'maxCornerErrorPlanUnits': max_error, 'actualVertexCount': len(actual)})
+        'maxCornerErrorPlanUnits': max_error, 'actualVertexCount': len(actual),'roundJoinVertices':len(added),'maxJoinExcursionPlanUnits':radius_error,
+        'checks':road_checks,'coverage':coverage})
 
 
-plaza_obj = bpy.data.objects.get('Original_market_square')
-planned_plaza = selection.get('plaza')
-plaza_result = {'passed': not planned_plaza and plaza_obj is None, 'presentInPlan': bool(planned_plaza)}
-if planned_plaza and plaza_obj:
-    plaza_ring, plaza_z = bottom_ring(plaza_obj)
-    plaza_result = polygon_comparison(xy(planned_plaza['points']), plaza_ring)
-    plaza_result.update(id=planned_plaza['id'], presentInPlan=True, actualBaseZ=plaza_z)
-check(plaza_result['passed'], 'The original market plaza footprint changed, is missing, or was added without a planned plaza.')
+from verify_markets import verify_markets
+market_results = verify_markets(selection,manifest,scale,tolerance=tol)
+for message in market_results.get('failures',[]):check(False,message)
+# Keep the old first-plaza result for consumers of historical reports, while
+# markets is the authoritative complete list in new scene reports.
+plaza_result = (market_results['plazas'][0]['footprint'] if market_results['plazas']
+                else {'passed':market_results['passed'],'presentInPlan':False})
 
 # Every planned feature needs an explicit scene representation, even when its
 # asset is a placeholder. Grove regions and fountain bases retain their exact
@@ -382,7 +398,7 @@ if whole_city:
         item = {'id': feature['id'], 'kind': feature['kind'], 'passed': bool(objects),
                 'taggedObjects': [obj.name for obj in objects], 'footprintChecked': False}
         if feature['kind'] in ('grove', 'fountain'):
-            obj = bpy.data.objects.get('Planning_' + feature['kind'] + '_' + feature['id'])
+            obj = objects_by_name.get('Planning_' + feature['kind'] + '_' + feature['id'])
             item['passed'] = item['passed'] and obj is not None
             if obj:
                 item['passed'] = item['passed'] and obj.get('source_feature_id') == feature['id']
@@ -405,9 +421,33 @@ if whole_city:
     check(set(feature_manifest.get('unrepresentedSourceFeatureIds', [])) == planned_feature_ids - set(feature_objects),
           'Feature manifest unrepresented IDs differ from actual missing source features.')
 
+tower_results=[]
+if manifest.get('roadSurfaces',{}).get('version',0)>=2:
+    bodies=[o for o in bpy.context.scene.objects if o.get('source_tower_vertex_id')]
+    expected_towers={(w['id'],vid) for w in selection['walls'] for vid in w.get('renderTowerVertexIds',w.get('towerVertexIds',[]))}
+    check({(o.get('source_wall_id'),o.get('source_tower_vertex_id')) for o in bodies}==expected_towers,'Actual tower placements differ from the declared spacing plan.')
+    for i,obj in enumerate(bodies):
+        v=world_vertices(obj);c=(sum(p.x for p in v)/len(v),sum(p.y for p in v)/len(v));radius=max(math.dist(c,(p.x,p.y)) for p in v)
+        source_point=source_vertices[obj['source_tower_vertex_id']]
+        passed=math.dist(c,(source_point[0]*scale,source_point[1]*scale))<tol
+        for other in bodies[:i]:
+            ov=world_vertices(other);oc=(sum(p.x for p in ov)/len(ov),sum(p.y for p in ov)/len(ov));orr=max(math.dist(oc,(p.x,p.y)) for p in ov)
+            if math.dist(c,oc)<radius+orr+.5:passed=False
+        check(passed,obj.name+': a wall tower moved or overlaps another tower.')
+        tower_results.append({'object':obj.name,'sourceVertexId':obj['source_tower_vertex_id'],'passed':passed})
+
 from verify_integrated_assets import verify_assets
 authored_results=verify_assets(selection,manifest,scale)
 for message in authored_results.get('failures',[]):check(False,message)
+from verify_harbor import verify_harbor
+harbor_results=verify_harbor(selection,manifest,scale)
+for message in harbor_results.get('failures',[]):check(False,message)
+from verify_river import verify_river
+river_results=verify_river(selection,manifest,scale,source=source,tolerance=tol)
+for message in river_results.get('failures',[]):check(False,message)
+from verify_estuary import verify_estuary
+estuary_results=verify_estuary(selection,manifest,scale,source=source,tolerance=tol)
+for message in estuary_results.get('failures',[]):check(False,message)
 
 result = {
     'status': 'pass' if not failures else 'fail',
@@ -418,15 +458,20 @@ result = {
     'counts': {'expectedBuildings': len(expected_buildings), 'actualBuildingFootprintObjects': len(actual_buildings),
         'verifiedBuildings': len(building_results), 'verifiedRoads': len(road_results), 'wallBodySpans': len(wall_results),
         'expectedActiveWallSegments': len(wall_coverage_results), 'verifiedGateCenters': len(gate_results),
-        'verifiedSourceFeatures': len(feature_results)},
+        'verifiedSourceFeatures': len(feature_results), 'verifiedBridges': river_results.get('verifiedBridges',0),
+        'verifiedMarkets': sum(row['passed'] for row in market_results['plazas'])},
     'sourceFilesSha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (source_path, selection_path, manifest_path, blend_path)},
     'maxBuildingBoundaryErrorPlanUnits': max((max(r.get('maxActualToSourceBoundaryErrorPlanUnits', 0), r.get('maxSourceToActualBoundaryErrorPlanUnits', 0)) for r in building_results), default=0),
     'maxBuildingCentroidErrorPlanUnits': max((r.get('centroidErrorPlanUnits', 0) for r in building_results), default=0),
     'wallManifestMaxEndpointErrorPlanUnits': span_manifest_error,
     'sourceIntegrity': source_integrity,
     'buildings': building_results, 'walls': wall_results, 'wallCoverage': wall_coverage_results,
-    'gates': gate_results, 'roads': road_results, 'plaza': plaza_result, 'features': feature_results,
+    'gates': gate_results, 'roads': road_results, 'plaza': plaza_result, 'markets':market_results, 'features': feature_results,
     'assetIntegration':authored_results,
+    'towerPlacements':tower_results,
+    'harbor':harbor_results,
+    'river':river_results,
+    'estuary':estuary_results,
     'failures': failures,
     'limits': [
         'Structural checks concern the ground footprint and original centerlines. Roof height, facade details, towers, parapets, gates and market props are designed interpretations.',

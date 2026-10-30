@@ -8,6 +8,7 @@ Python. Blender geometry is supplied by the renderer through ``api``.
 import hashlib
 import math
 import random
+from spatial_index import BoxIndex
 
 
 COLLECTION = '04_SHOPFRONTS'
@@ -85,14 +86,19 @@ def _facades(record):
 
 def _candidate_shops(data, records, occupied=()):
     """Pick one clear facade patch on each of at most fourteen buildings."""
+    occupied=list(occupied)
+    occupied_index=BoxIndex((i,(p[0]-max(0,r),p[0]+max(0,r),p[1]-max(0,r),p[1]+max(0,r))) for i,(p,r) in enumerate(occupied))
     polys = {r['id']: [_xy(p) for p in r['footprint']] for r in records}
+    polygon_index=BoxIndex((key,(min(v[0] for v in poly),max(v[0] for v in poly),min(v[1] for v in poly),max(v[1] for v in poly))) for key,poly in polys.items())
     roads = [(a, b, float(r['width'])) for r in data.get('roads', [])
              for p in [[_xy(q) for q in r['points']]] for a, b in zip(p, p[1:])]
+    road_index=BoxIndex((i,(min(a[0],b[0])-max(1.05,w*.23)-1e-7,max(a[0],b[0])+max(1.05,w*.23)+1e-7,
+                            min(a[1],b[1])-max(1.05,w*.23)-1e-7,max(a[1],b[1])+max(1.05,w*.23)+1e-7)) for i,(a,b,w) in enumerate(roads))
     plazas = [[_xy(q) for q in d['points']] for d in data.get('districts', []) if d.get('wardType') == 'Market']
     crop = [_xy(q) for q in data.get('cropPolygon', [])]
     candidates = []
     for record in records:
-        if record.get('wardType') == 'Cathedral':
+        if record.get('wardType') in ('Cathedral','Castle'):
             continue
         rid = record['id']
         for face in _facades(record):
@@ -115,12 +121,14 @@ def _candidate_shops(data, records, occupied=()):
                     samples = [q(-width/2+width*i/10, .10+(depth-.10)*j/4) for i in range(11) for j in range(5)]
                     if crop and any(not _inside(v, crop) for v in samples):
                         continue
-                    if any(_polys_conflict(rect,poly,.17) for key,poly in polys.items() if key != rid):
+                    box=(min(v[0] for v in rect),max(v[0] for v in rect),min(v[1] for v in rect),max(v[1] for v in rect))
+                    near=polygon_index.query((box[0]-.1700001,box[1]+.1700001,box[2]-.1700001,box[3]+.1700001))
+                    if any(_polys_conflict(rect,polys[key],.17) for key in near if key != rid):
                         continue
                     # Keep a continuous useful centre corridor even on narrow roads.
-                    if any(_segment_near_polygon(ra,rb,rect,max(1.05,rw*.23)) for ra,rb,rw in roads):
+                    if any(_segment_near_polygon(roads[i][0],roads[i][1],rect,max(1.05,roads[i][2]*.23)) for i in road_index.query(box)):
                         continue
-                    if any(_inside(p, rect) or _boundary(p, rect)<radius for p, radius in occupied):
+                    if any(_inside(occupied[i][0],rect) or _boundary(occupied[i][0],rect)<occupied[i][1] for i in occupied_index.query(box)):
                         continue
                     front = q(0, depth+.7)
                     road_d = min((_dist(front, ra, rb)-rw/2 for ra, rb, rw in roads), default=999.)
@@ -357,7 +365,7 @@ def build_shopfronts(data, building_records, api):
             occupied.append(((float(obj.location[0]),float(obj.location[1])),radius))
     if api.get('assetLibrary'):
         for obj in api['collection']('06_AUTHORED_ASSETS').objects:
-            if obj.get('asset_mount_role')=='house_entrance':
+            if obj.get('asset_mount_role') in ('house_entrance','castle_entrance'):
                 occupied.append(((float(obj.matrix_world.translation.x),float(obj.matrix_world.translation.y)),.85))
     for feature in data.get('features',[]):
         if feature.get('kind') != 'fountain':

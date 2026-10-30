@@ -7,6 +7,7 @@ can have several roof volumes, but never acquire a different ground footprint.
 import json
 import math
 from mathutils import Vector
+from spatial_index import BoxIndex
 
 
 def build_buildings(data, api):
@@ -17,6 +18,15 @@ def build_buildings(data, api):
     plasters = api['plasters']
     up = Vector((0, 0, 1))
     footprints = {b['id']: points(b['points']) for b in data['buildings']}
+    footprint_index=BoxIndex((bid,(min(p[0] for p in poly),max(p[0] for p in poly),min(p[1] for p in poly),max(p[1] for p in poly))) for bid,poly in footprints.items())
+    class DiscardedDecoration:
+        # The authored kit replaces these exact batches later. Keep their
+        # random decisions and roof records, without building disposable meshes.
+        def __init__(self,*args,**kwargs):pass
+        def beam(self,*args,**kwargs):pass
+        def box(self,*args,**kwargs):pass
+        def finish(self):pass
+    Decoration=DiscardedDecoration if api.get('assetLibrary') else Batch
     plaza = points(data['plaza']['points']) if data.get('plaza') else []
     plaza_center = center(plaza) if plaza else center(points(data['cropPolygon']))
     road_segments = [(a, b, road.get('width', 3)) for road in data['roads']
@@ -119,7 +129,7 @@ def build_buildings(data, api):
 
     def outward_clear(q, bid, out, distance=.8):
         test = (q[0] + out.x * distance, q[1] + out.y * distance)
-        return not any(inside(test, fp) for other, fp in footprints.items() if other != bid)
+        return not any(inside(test,footprints[other]) for other in footprint_index.query((test[0],test[0],test[1],test[1])) if other!=bid)
 
     records = []
     roof_styles = ['asymmetric_gable', 'half_hip', 'hipped', 'broken_pitch', 'asymmetric_gable', 'half_hip']
@@ -226,14 +236,14 @@ def build_buildings(data, api):
         obj['roof_type'] = 'stepped_connected_hall' if count > 1 else style
         obj['facade_type'] = facade_style
 
-        oak = Batch(bid + '_primary_oak', M['timber'])
-        secondary = Batch(bid + '_secondary_joinery', M['timber'])
-        rims = Batch(bid + '_roof_rims', M['ink'])
-        caps = Batch(bid + '_ridge_caps', roofmat)
-        glass = Batch(bid + '_window_recesses', M['glass'])
-        leads = Batch(bid + '_window_leads', M['canvas_cream'])
-        shutters = Batch(bid + '_weathered_shutters', M['timber'])
-        iron = Batch(bid + '_window_iron', M['metal'])
+        oak = Decoration(bid + '_primary_oak', M['timber'])
+        secondary = Decoration(bid + '_secondary_joinery', M['timber'])
+        rims = Decoration(bid + '_roof_rims', M['ink'])
+        caps = Decoration(bid + '_ridge_caps', roofmat)
+        glass = Decoration(bid + '_window_recesses', M['glass'])
+        leads = Decoration(bid + '_window_leads', M['canvas_cream'])
+        shutters = Decoration(bid + '_weathered_shutters', M['timber'])
+        iron = Decoration(bid + '_window_iron', M['metal'])
         for part, piece in enumerate(pieces):
             edge_map = {}
             for face_index, (q, plane) in enumerate(piece['surfaces']):
@@ -506,6 +516,7 @@ def build_buildings(data, api):
         for batch in (oak, secondary, rims, caps, glass, leads, shutters, iron, chimney, chimney_caps, chimney_dark):
             batch.finish()
         records.append({'id': bid, 'wardType': building.get('wardType'), 'districtId': building['districtId'],
+                        **({'architecturalRole': building['architecturalRole']} if building.get('architecturalRole') else {}),
                         'footprint': p, 'floors': floors, 'eave': eave,
                         'ridgeHeight': max(plane_height(plane, q) for piece in pieces for q, plane in
                                            ((point, plane) for surface, plane in piece['surfaces'] for point in surface)),

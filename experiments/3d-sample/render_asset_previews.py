@@ -1,16 +1,20 @@
 """Render category sheets from the saved library. Run in background Blender."""
-import bpy, math, json
+import bpy, math, json, argparse, sys
 from pathlib import Path
 from mathutils import Vector
 
 HERE=Path(__file__).resolve().parent
 OUT=HERE.parents[1]/'artifacts'/'small-town-assets'
 manifest=json.loads((OUT/'asset-library.json').read_text(encoding='utf-8'))
+parser=argparse.ArgumentParser()
+parser.add_argument('--category',action='append',help='Only render this category; repeat to select several.')
+args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 template=next(s for s in bpy.data.scenes if s.name.startswith('SMALL TOWN /'))
 groups={}
 for entry in manifest['assets']:groups.setdefault(entry['category'],[]).append(entry)
 
 for category,entries in groups.items():
+    if args.category and category not in args.category:continue
     scene=bpy.data.scenes.new('PREVIEW / '+category)
     bpy.context.window.scene=scene
     scene.render.engine='CYCLES';scene.cycles.samples=24;scene.cycles.use_denoising=True

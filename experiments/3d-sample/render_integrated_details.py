@@ -10,6 +10,9 @@ args=argparse.ArgumentParser()
 args.add_argument('--artifact-dir',type=Path,required=True)
 args.add_argument('--name',default='small-town-assets')
 args.add_argument('--resolution',type=int,default=2000)
+args.add_argument('--roof-building',help='Also photograph this building for roof inspection.')
+args.add_argument('--castle-walls',action='store_true',help='Include the castle enclosure and its connection to city walls.')
+args.add_argument('--view',action='append',help='Render only this named view; repeat to select several.')
 opts=args.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 out=opts.artifact_dir.resolve()
 bpy.ops.wm.open_mainfile(filepath=str(out/(opts.name+'.blend')))
@@ -34,14 +37,26 @@ if selection.get('plaza'):
     poly=[(p['x']*manifest['horizontalScale'],p['y']*manifest['horizontalScale']) for p in selection['plaza']['points']]
     points=[Vector((x,y,z)) for x,y in poly for z in (.04,7.5)]
     views.append(('market-detail',points))
+# A close view makes the mounted cap endpoints and roof contact inspectable.
+if opts.roof_building:
+    points=[p for o in meshes if o.get('source_building_id')==opts.roof_building for p in bounds[o.name]]
+    if not points:raise ValueError('Unknown roof inspection building: '+opts.roof_building)
+    views.append(('roof-detail',points))
+if opts.castle_walls:
+    points=[Vector((p['x']*manifest['horizontalScale'],p['y']*manifest['horizontalScale'],z))
+            for wall in selection['walls'] if wall['kind']=='castle' for p in wall['points'] for z in (0,22)]
+    if not points:raise ValueError('No castle wall in the selected town.')
+    castle_ids={r['id'] for r in manifest['buildings'] if r.get('wardType')=='Castle'}
+    points.extend(p for o in meshes if o.get('source_building_id') in castle_ids for p in bounds[o.name])
+    views.append(('castle-wall-detail',points))
 framing=[]
 direction=camera.matrix_world.to_quaternion()@Vector((0,0,1))
 for name,points in views:
+    if opts.view and name not in opts.view:continue
     lo=[min(p[i] for p in points) for i in range(3)];hi=[max(p[i] for p in points) for i in range(3)]
-    for obj in meshes:
-        pts=bounds[obj.name]
-        outside=max(p.x for p in pts)<lo[0]-10 or min(p.x for p in pts)>hi[0]+10 or max(p.y for p in pts)<lo[1]-10 or min(p.y for p in pts)>hi[1]+10
-        obj.hide_render=outside and obj.name!='Study_ground'
+    visible=[o for o in scene.objects if o.type!='MESH' or o.name=='Study_ground' or not (
+        max(p.x for p in bounds[o.name])<lo[0]-10 or min(p.x for p in bounds[o.name])>hi[0]+10
+        or max(p.y for p in bounds[o.name])<lo[1]-10 or min(p.y for p in bounds[o.name])>hi[1]+10)]
     focus=Vector(tuple((a+b)/2 for a,b in zip(lo,hi)))
     camera.location=focus+direction*550
     bpy.context.view_layer.update();inv=camera.matrix_world.inverted();projected=[inv@p for p in points]
@@ -51,7 +66,7 @@ for name,points in views:
     scene.render.resolution_x=opts.resolution;scene.render.resolution_y=round(opts.resolution/1.2)
     scene.render.resolution_percentage=100;scene.cycles.samples=32
     scene.render.filepath=str(out/(name+'.png'))
-    render_with_ink(scene)
+    render_with_ink(scene,visible)
     framing.append({'file':name+'.png','cameraPosition':list(camera.location),'orthoScale':camera.data.ortho_scale,
                     'note':'Photograph from the same complete scene; offscreen meshes hidden only in memory for rendering. Saved scene unchanged.'})
     print('INTEGRATED_DETAIL_READY '+name,flush=True)

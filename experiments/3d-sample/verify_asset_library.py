@@ -1,11 +1,16 @@
 """Independent saved-library + GLB round-trip checks (run with Blender)."""
-import bpy,json,math,struct,hashlib
+import bpy,json,math,struct,hashlib,argparse,sys
 from pathlib import Path
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 HERE=Path(__file__).resolve().parent
-OUT=HERE.parents[1]/'artifacts'/'small-town-assets'
+parser=argparse.ArgumentParser()
+parser.add_argument('--asset-dir',type=Path,default=HERE.parents[1]/'artifacts'/'small-town-assets')
+parser.add_argument('--expected-assets',type=int,default=61)
+parser.add_argument('--expected-groups',type=int,default=11)
+args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+OUT=args.asset_dir.resolve()
 manifest=json.loads((OUT/'asset-library.json').read_text(encoding='utf-8'))
 results=[]
 failures=[]
@@ -44,6 +49,20 @@ for entry in manifest['assets']:
         for mat in ob.data.materials:
             textures=[n.image for n in mat.node_tree.nodes if n.type=='TEX_IMAGE' and n.image]
             require(all(i.packed_file for i in textures),mat.name+': unpacked image')
+    # The repeated cap tiles must end at the canonical roof's gables. A ceil
+    # count with a fixed pitch used to leave the final tile hanging past them.
+    roof_sizes={'cathedral_roof_01':(8,3),'cathedral_annex_01':(3.2,4.35),
+                'farm_cottage_01':(4.8,4.9),'farm_barn_01':(4.8,4.9),
+                'dormer_01':(1.6,1.88),'dormer_03':(1.6,1.88)}
+    cap_check=None
+    if entry['id'] in roof_sizes:
+        roof_length,crest_z=roof_sizes[entry['id']]
+        tops=[v.co for ob in coll.objects if ob.type=='MESH' for v in ob.data.vertices
+              if abs(v.co.z-crest_z-.12)<1e-5 and abs(v.co.x)<=.101]
+        require(bool(tops),entry['id']+': canonical ridge caps missing')
+        extension=max((abs(v.y)-roof_length/2 for v in tops),default=0)
+        require(extension<1e-5,entry['id']+': canonical ridge cap extends past its gable')
+        cap_check={'capTopVertices':len(tops),'maxExtensionMeters':max(0,extension),'passed':bool(tops) and extension<1e-5}
     bpy.ops.import_scene.gltf(filepath=str(path))
     bpy.context.view_layer.update()
     imported=list(scene.objects)
@@ -64,7 +83,7 @@ for entry in manifest['assets']:
         require(clear,entry['id']+': central passage blocked')
         clearance={'sampledWidth':3,'sampledHeightRange':[.25,2.75],'sampledDepth':1.6,'passed':clear}
     results.append({'assetId':entry['id'],'roundTripBoundsErrorMeters':error,'meshes':len(meshes),
-                    'embeddedTextureCount':len(gltf.get('images',[])),'bytes':len(raw),'passageCheck':clearance,
+                    'embeddedTextureCount':len(gltf.get('images',[])),'bytes':len(raw),'passageCheck':clearance,'ridgeCapCheck':cap_check,
                     'passed':error<1e-5})
     for ob in imported:
         mesh=ob.data if ob.type=='MESH' else None
@@ -72,14 +91,15 @@ for entry in manifest['assets']:
         if mesh and mesh.users==0:bpy.data.meshes.remove(mesh)
     print('CHECKED '+entry['id'],flush=True)
 
-require(len(manifest['assets'])==61,'Expected 61 variants')
-require(len(manifest['requirements'])==11,'Expected 11 required groups')
+require(len(manifest['assets'])==args.expected_assets,'Unexpected authored asset count')
+require(len(manifest['requirements'])==args.expected_groups,'Unexpected required group count')
 require(all(r['requiredVariants']==r['deliveredVariants'] for r in manifest['requirements']),'Variant count mismatch')
 report={'passed':not failures,'checkedAssets':len(results),'checkedGroups':len(manifest['requirements']),
-        'librarySha256':hashlib.sha256((OUT/'small-town-asset-library.blend').read_bytes()).hexdigest(),
+        'librarySha256':hashlib.sha256((OUT/manifest.get('blendFile','small-town-asset-library.blend')).read_bytes()).hexdigest(),
         'checks':['GLB headers and checksums','embedded textures and buffers','asset metadata and root origins',
                   'semantic material slots and packed Blender images','finite geometry and UVs',
-                  'all 61 GLB imports, mesh counts and metric bounding boxes','gate passage triangle ray tests'],
+                  'all delivered GLB imports, mesh counts and metric bounding boxes','gate passage triangle ray tests',
+                  'canonical roof cap end bounds'],
         'maxRoundTripBoundsErrorMeters':max(r['roundTripBoundsErrorMeters'] for r in results),
         'assets':results,'failures':failures,
         'limitations':'Static stylized assets; no rigging, LODs, collision proxies, navigation or whole-town replacement validation.'}

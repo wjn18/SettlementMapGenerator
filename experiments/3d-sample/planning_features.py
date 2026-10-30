@@ -3,6 +3,7 @@ import math
 import json
 from mathutils import Vector
 import bpy
+from spatial_index import BoxIndex
 
 
 def build_fountain(feature, api, collection_name):
@@ -88,6 +89,8 @@ def build_planning_features(data, api):
     footprints = [points(b['points']) for b in data['buildings']]
     road_segments = [(a,b,r['width']) for r in data['roads']
                      for a,b in zip(points(r['points']), points(r['points'])[1:])]
+    building_index=BoxIndex((i,(min(x for x,y in p),max(x for x,y in p),min(y for x,y in p),max(y for x,y in p))) for i,p in enumerate(footprints))
+    road_index=BoxIndex((i,(min(a[0],b[0])-w/2-.2,max(a[0],b[0])+w/2+.2,min(a[1],b[1])-w/2-.2,max(a[1],b[1])+w/2+.2)) for i,(a,b,w) in enumerate(road_segments))
     records = []
     fountains = []
     for feat in data.get('features', []):
@@ -111,8 +114,10 @@ def build_planning_features(data, api):
             q = center(poly) if attempt == 0 else (rng.uniform(minx,maxx),rng.uniform(miny,maxy))
             radius = rng.uniform(.65,1.65)
             if not inside(q,poly) or boundary_distance(q,poly)<radius: continue
-            if any(inside(q,p) or boundary_distance(q,p)<radius+.4 for p in footprints): continue
-            if any(segment_distance(q,a,b)<w/2+radius+.2 for a,b,w in road_segments): continue
+            near=building_index.query((q[0]-radius-.4,q[0]+radius+.4,q[1]-radius-.4,q[1]+radius+.4))
+            if any(inside(q,footprints[i]) or boundary_distance(q,footprints[i])<radius+.4 for i in near): continue
+            near=road_index.query((q[0]-radius,q[0]+radius,q[1]-radius,q[1]+radius))
+            if any(segment_distance(q,road_segments[i][0],road_segments[i][1])<road_segments[i][2]/2+radius+.2 for i in near): continue
             if any(math.dist(q,p)<radius+r+.35 for p,r in accepted): continue
             accepted.append((q,radius))
             if len(accepted)>=target: break

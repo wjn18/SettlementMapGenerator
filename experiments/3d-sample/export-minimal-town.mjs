@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { generateTown, serializeTown, deserializeTown, validateTown } from '@settlement/core';
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
+import { townOptionFlags,readTownOptions } from '../../scripts/three-d-options.mjs';
+import { selectWallTowerIds } from '../../packages/core/dist/wall-towers.js';
 
 // The same TownData contract used by the playground's JSON export is the 3D
 // input. There is no image tracing, parcel editing, or geometry simplification.
@@ -17,11 +19,11 @@ const option = (name, fallback) => {
   if (!args[index + 1] || args[index + 1].startsWith('--')) throw new Error(`Missing value for ${name}`);
   return args[index + 1];
 };
-const known = new Set(['--input', '--output', '--seed', '--size']);
+const known = new Set(['--input', '--output', ...townOptionFlags]);
 for (let i = 0; i < args.length; i += 2) if (!known.has(args[i])) throw new Error(`Unknown option ${args[i]}`);
 const output = path.resolve(root, option('--output', 'artifacts/3d-minimal-city'));
 const input = option('--input', null);
-const requested = { seed: Number(option('--seed', '7')), size: Number(option('--size', '6')), walls: true, castle: false, plaza: true };
+const requested = readTownOptions(args);
 await fs.mkdir(output, { recursive: true });
 let town;
 if (input) town = deserializeTown(await fs.readFile(path.resolve(process.cwd(), input), 'utf8'));
@@ -43,9 +45,12 @@ const districts = town.districts.map(d => ({ ...d, points: points(d.boundary) })
 const buildings = town.buildings.map(b => ({ ...b, wardType: districtById.get(b.districtId).wardType, points: points(b.boundary) }));
 const features = town.features.map(f => ({ ...f, points: points(f.boundary) }));
 const roads = town.roads.map(r => ({ ...r, sourceId: r.id, points: points(r.vertexIds), sourceSegments: r.vertexIds.slice(1).map((_, i) => i) }));
+const towerPlacement=selectWallTowerIds(town);
 const walls = town.walls.map(w => ({ ...w, sourceId: w.id, points: points(w.boundary), closed: true,
   sourceSegments: w.boundary.map((_, i) => i),
   gatePoints: town.gates.filter(g => g.wallId === w.id).map(g => point(g.vertexId)), towerPoints: points(w.towerVertexIds),
+  renderTowerVertexIds:towerPlacement.get(w.id),renderTowerPoints:points(towerPlacement.get(w.id)),
+  omittedTowerVertexIds:w.towerVertexIds.filter(id=>!towerPlacement.get(w.id).includes(id)),
 }));
 const bounds = { ...town.bounds };
 // This is only the complete map's display extent/ground slab. No entity is

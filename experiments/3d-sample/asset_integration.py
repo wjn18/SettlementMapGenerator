@@ -4,19 +4,22 @@ Only vertical architecture and decoration are designed here. Ground polygons,
 road meshes, wall centerlines, and source identifiers remain the adapter's data.
 """
 import bpy
-import bmesh
 import hashlib
 import json
 import math
 import random
+import re
 from collections import Counter
 from pathlib import Path
 from mathutils import Matrix, Vector
-from mathutils.geometry import tessellate_polygon
 from mathutils.bvhtree import BVHTree
 from props import inside, segment_distance, boundary_distance
+from roof_ridges import ridge_segments
+from castle_integration import mount_castle
+from spatial_index import BoxIndex
 
 DEFAULT_LIBRARY = Path(__file__).resolve().parents[2] / 'artifacts' / 'small-town-assets' / 'small-town-asset-library.blend'
+CASTLE_LIBRARY = DEFAULT_LIBRARY.parent.parent / 'castle-assets' / 'castle-asset-library.blend'
 
 
 def stable_index(key, count):
@@ -67,8 +70,26 @@ class AssetLibrary:
         self.cache={};self.instances=[];self.skipped=[];self.roles=[];self.gate_mounts=[]
         self.groves=[];self.fountains=[];self.special_buildings=[]
         self.container=bpy.data.collections.new('06_AUTHORED_ASSETS')
-        bpy.context.scene.collection.children.link(self.container)
+        # Assemble the dense kit off-scene, then attach the collection once.
+        # Linking each of tens of thousands of parts into a live scene causes
+        # repeated scene/dependency bookkeeping as the city grows.
         self.buildings=[];self.roads=[];self.occupied=[]
+        self.building_index=BoxIndex();self.road_index=BoxIndex()
+        self.additional_libraries=[];self.castle_roles=[];self.castle_gate_points=[]
+
+    def load_castle_library(self):
+        path=CASTLE_LIBRARY;manifest_path=path.with_name('asset-library.json')
+        if not path.is_file() or not manifest_path.is_file():raise FileNotFoundError('Castle keep kit is required: '+str(path)+'. Build it with build_castle_assets.py.')
+        manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+        if manifest['materialSlots']!=self.slots:raise ValueError('Castle kit semantic material slots differ from the base library.')
+        entries={e['id']:e for e in manifest['assets']}
+        with bpy.data.libraries.load(str(path),link=False) as (source,target):
+            if set(entries)-set(source.collections):raise ValueError('Castle library is missing a required collection')
+            target.collections=list(entries)
+        self.collections.update({c.name:c for c in target.collections});self.entries.update(entries)
+        first=next(o for o in self.collections['castle_keep_masonry_01'].objects if o.type=='MESH')
+        self.castle_materials={key:first.data.materials[i] for i,key in enumerate(self.slots)}
+        self.additional_libraries.append({'library':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'kitId':'castle_keep_kit'})
 
     def part(self, asset_id, role=None, subset=None):
         key=(asset_id,role,subset)
@@ -95,30 +116,39 @@ class AssetLibrary:
 
     def place(self, asset_id, position=(0,0,0), scale=(1,1,1), basis=None, part=None,
               subset=None, pivot=(0,0,0), building_id=None, feature_id=None,
-              role='decoration', collection=None, mesh=None, record=True):
+              role='decoration', collection=None, mesh=None, record=True, market_id=None):
         source=mesh or self.part(asset_id,part,subset)
         matrix=Matrix.Translation(Vector(position))@(basis or Matrix.Identity(4))@Matrix.Diagonal((*scale,1))@Matrix.Translation(-Vector(pivot))
-        facade_roles={'special_facade','patriciate_cornice','timber_panel','house_window','house_entrance','cathedral_window','cathedral_entrance'}
+        facade_roles={'special_facade','patriciate_cornice','timber_panel','house_window','house_entrance','cathedral_window','cathedral_entrance','castle_window','castle_entrance','castle_masonry_detail'}
         if role in facade_roles and self.facade_volume_conflicts(source,matrix,building_id):
             self.skipped.append({'buildingId':building_id,'assetId':asset_id,'role':role,'reason':'actual component intersects an adjacent building volume'})
             return None
         obj=bpy.data.objects.new('Asset_'+asset_id+'_'+str(len(self.instances)),source)
+        obj.pass_index=0 if role=='castle_keep_shell' else 1
         (collection or self.container).objects.link(obj)
         obj.matrix_world=matrix
         obj['authored_asset_id']=asset_id;obj['asset_part']=part or subset or 'main'
         obj['asset_mount_role']=role;obj['representation']='authored_3d_kit'
         if building_id:obj['source_building_id']=building_id
         if feature_id:obj['source_feature_id']=feature_id
+        if market_id is not None:obj['source_market_id']=market_id
         if record:self.register(obj,asset_id,role,building_id,feature_id)
         return obj
 
     def register(self,obj,asset_id,role,building_id=None,feature_id=None):
+        index=0 if role=='castle_keep_shell' else 1
+        if obj.pass_index!=index:obj.pass_index=index
         self.instances.append({'object':obj.name,'assetId':asset_id,'gapId':self.entries[asset_id]['gapId'],
-                               'role':role,'sourceBuildingId':building_id,'sourceFeatureId':feature_id})
+                               'role':role,'sourceBuildingId':building_id,'sourceFeatureId':feature_id,
+                               'sourceMarketId':obj.get('source_market_id')})
 
     def clear(self,p, radius, own=None, roads=True):
-        if any(bid!=own and (inside(p,poly) or boundary_distance(p,poly)<radius+.08) for bid,poly in self.buildings):return False
-        if roads and any(segment_distance(p,a,b)<w*.5+radius+.12 for a,b,w in self.roads):return False
+        margin=radius+.08
+        near=self.building_index.query((p[0]-margin,p[0]+margin,p[1]-margin,p[1]+margin))
+        if any(bid!=own and (inside(p,self.record_by_id[bid]['footprint']) or boundary_distance(p,self.record_by_id[bid]['footprint'])<margin) for bid in near):return False
+        if roads:
+            near=self.road_index.query((p[0]-radius,p[0]+radius,p[1]-radius,p[1]+radius))
+            if any(segment_distance(p,self.roads[i][0],self.roads[i][1])<self.roads[i][2]*.5+radius+.12 for i in near):return False
         return True
 
     def facade_clear(self,mesh,matrix,own):
@@ -132,7 +162,7 @@ class AssetLibrary:
         points=[matrix@v.co for v in mesh.vertices]
         if not points:return False
         lo=[min(p[i] for p in points) for i in (0,1)];hi=[max(p[i] for p in points) for i in (0,1)]
-        near=[bid for bid,box in self.building_boxes.items() if bid!=own and lo[0]<=box[1] and hi[0]>=box[0] and lo[1]<=box[3] and hi[1]>=box[2]]
+        near=[bid for bid in self.building_index.query((lo[0],hi[0],lo[1],hi[1])) if bid!=own]
         if not near:return False
         samples=points+[matrix@f.center for f in mesh.polygons]
         for bid in near:
@@ -144,55 +174,23 @@ class AssetLibrary:
 
     def fitted_mesh(self,asset_id,part,matrix,polygon,subset=None):
         """Clip actual library polygons to the supplied footprint, carrying UVs."""
-        source=self.part(asset_id,part,subset)
-        poly=polygon[:] if signed_area(polygon)>0 else list(reversed(polygon))
-        turns=[(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]) for a,b,c in zip(poly,poly[1:]+poly[:1],poly[2:]+poly[:2])]
-        if min(turns)>=-1e-7:clip_polys=[poly]
-        else:
-            vectors=[Vector((*p,0)) for p in poly]
-            triangles=tessellate_polygon([vectors])
-            clip_polys=[[(vectors[v].x,vectors[v].y) if isinstance(v,int) else (v.x,v.y) for v in triangle] for triangle in triangles]
-        vertices=[];faces=[];uvs=[];indices=[]
-        for face in source.polygons:
-            initial=[(matrix@source.vertices[source.loops[li].vertex_index].co,Vector(source.uv_layers.active.data[li].uv)) for li in face.loop_indices]
-            for boundary in clip_polys:
-                points=initial[:]
-                for a,b in zip(boundary,boundary[1:]+boundary[:1]):
-                    if not points:break
-                    out=[]
-                    def distance(v):return (b[0]-a[0])*(v.y-a[1])-(b[1]-a[1])*(v.x-a[0])
-                    for p,q in zip(points,points[1:]+points[:1]):
-                        dp,dq=distance(p[0]),distance(q[0]);ip,iq=dp>=-1e-7,dq>=-1e-7
-                        if ip:out.append(p)
-                        if ip!=iq:
-                            t=dp/(dp-dq);out.append((p[0].lerp(q[0],t),p[1].lerp(q[1],t)))
-                    points=out
-                cleaned=[]
-                for item in points:
-                    if not cleaned or (item[0]-cleaned[-1][0]).length>1e-7:cleaned.append(item)
-                if len(cleaned)>2 and (cleaned[0][0]-cleaned[-1][0]).length<1e-7:cleaned.pop()
-                if len(cleaned)<3:continue
-                offset=len(vertices);vertices.extend([v[:] for v,uv in cleaned]);uvs.append([uv[:] for v,uv in cleaned])
-                faces.append(tuple(range(offset,offset+len(cleaned))));indices.append(face.material_index)
-        mesh=bpy.data.meshes.new(asset_id+' / fitted to source')
-        mesh.from_pydata(vertices,[],faces)
-        for mat in source.materials:mesh.materials.append(mat)
-        layer=mesh.uv_layers.new(name='ST_uv_meters')
-        for face,coords,slot in zip(mesh.polygons,uvs,indices):
-            face.material_index=slot
-            for li,uv in zip(face.loop_indices,coords):layer.data[li].uv=uv
-        mesh.update()
-        bm=bmesh.new();bm.from_mesh(mesh)
-        bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=1e-6)
-        bmesh.ops.dissolve_degenerate(bm,edges=list(bm.edges),dist=1e-7)
-        bm.to_mesh(mesh);bm.free();mesh.update()
-        return mesh
+        from fitted_mesh import fit_mesh
+        return fit_mesh(self.part(asset_id,part,subset),matrix,polygon,asset_id+' / fitted to source')
 
     def design_roles(self,records):
         districts={}
         for r in records:
             if r.get('wardType')=='Cathedral':districts.setdefault(r['districtId'],[]).append(r)
         for district,group in districts.items():
+            if any(r.get('architecturalRole') for r in group):
+                roles=[r.get('architecturalRole') for r in group]
+                if any(role not in ('main_hall','bell_tower','annex') for role in roles) or roles.count('main_hall')!=1 or roles.count('bell_tower')!=1:
+                    raise ValueError('Incomplete or invalid explicit cathedral roles: '+district)
+                for r in group:
+                    self.roles.append({'districtId':district,'buildingId':r['id'],'role':r['architecturalRole'],
+                                       'rule':'explicit 2D church layout; preserve nave, square tower and orthogonal wings',
+                                       'sourceSemantic':True})
+                continue
             main=max(group,key=lambda r:(abs(signed_area(r['footprint'])),r['id']))
             remaining=[r for r in group if r is not main]
             def score(r):
@@ -268,28 +266,50 @@ class AssetLibrary:
         record['floors']=max(1,round(eave/3));record['floorHeight']=eave/record['floors']
         self.special_buildings.append({'buildingId':bid,'wardType':ward,'role':role or ward,'roofAssetId':record['authoredRoofAssetId']})
 
-    def architecture(self,data,records):
+    def architecture(self,data,records,native_objects=None):
+        self.deferred_scene = native_objects is not None
         self.buildings=[(r['id'],r['footprint']) for r in records]
         self.record_by_id={r['id']:r for r in records}
         self.building_boxes={r['id']:(min(x for x,y in r['footprint']),max(x for x,y in r['footprint']),min(y for x,y in r['footprint']),max(y for x,y in r['footprint'])) for r in records}
         self.roads=[(a,b,r['width']) for r in data['roads'] for pts in [[(p['x'],p['y']) for p in r['points']]] for a,b in zip(pts,pts[1:])]
+        self.building_index=BoxIndex(self.building_boxes.items())
+        self.road_index=BoxIndex((i,(min(a[0],b[0])-w/2-.12,max(a[0],b[0])+w/2+.12,min(a[1],b[1])-w/2-.12,max(a[1],b[1])+w/2+.12)) for i,(a,b,w) in enumerate(self.roads))
         self.design_roles(records)
+        castles=[r for r in records if r.get('wardType')=='Castle']
+        if castles:
+            self.load_castle_library()
+            self.castle_gate_points=[(p['x'],p['y']) for w in data['walls'] if w['kind']=='castle' for p in w.get('gatePoints',[])]
+            for district in sorted({r['districtId'] for r in castles}):
+                group=[r for r in castles if r['districtId']==district]
+                main=max(group,key=lambda r:(abs(signed_area(r['footprint'])),r['id']))
+                for r in group:
+                    r['architecturalRole']='keep' if r is main else 'service_hall'
+                    self.castle_roles.append({'districtId':district,'buildingId':r['id'],'role':r['architecturalRole'],
+                                              'rule':'largest existing footprint = keep; others = lower stone service halls','sourceSemantic':False})
         generic_suffixes={'primary_oak','secondary_joinery','roof_rims','ridge_caps','window_recesses','window_leads','weathered_shutters','window_iron'}
+        native={r['id']:[] for r in records};prefix=re.compile(r'^('+'|'.join(re.escape(bid) for bid in native)+r')_')
+        for obj in list(native_objects if native_objects is not None else bpy.context.scene.objects):
+            match=prefix.match(obj.name)
+            if match:native[match[1]].append(obj)
         for record in records:
-            bid=record['id'];special=record.get('wardType') in ('Cathedral','Farm','PatriciateWard')
-            for obj in list(bpy.context.scene.objects):
+            bid=record['id'];special=record.get('wardType') in ('Cathedral','Farm','PatriciateWard','Castle')
+            for obj in native[bid]:
                 if not obj.name.startswith(bid+'_') or obj.name==bid+'_footprint_wall':continue
                 suffix=obj.name[len(bid)+1:]
                 if (special and record['wardType']!='PatriciateWard') or suffix in generic_suffixes or suffix.startswith('dormer_'):
                     bpy.data.objects.remove(obj,do_unlink=True)
-            if special and record['wardType']!='PatriciateWard':self.special_shell(record)
+            if record.get('wardType')=='Castle':mount_castle(self,record)
+            elif special and record['wardType']!='PatriciateWard':self.special_shell(record)
             elif record.get('wardType')=='PatriciateWard':
                 self.special_buildings.append({'buildingId':bid,'wardType':'PatriciateWard','role':'patriciate_house','roofAssetId':'retained_footprint_roof'})
         for record in records:
+            if record.get('wardType')=='Castle':continue
             special=record.get('wardType') in ('Cathedral','Farm','PatriciateWard')
             self.mount_facades(record)
             if not special or record['wardType']=='PatriciateWard':self.mount_roof_details(record)
-        bpy.context.view_layer.update()
+        if not self.deferred_scene:
+            bpy.context.scene.collection.children.link(self.container)
+            bpy.context.view_layer.update()
 
     def mount_facades(self,record):
         bid=record['id'];ward=record.get('wardType');special=ward in ('Cathedral','Farm','PatriciateWard')
@@ -346,22 +366,23 @@ class AssetLibrary:
                 self.place(opening,(*p,.10),scale=(.85,)*3,basis=basis,building_id=bid,role='house_entrance')
 
     def mount_roof_details(self,record):
-        bid=record['id'];u=Vector(record['roofAxes']['along']);v=Vector((u.y,-u.x))
-        basis=Matrix(((v.x,u.x,0,0),(v.y,u.y,0,0),(0,0,1,0),(0,0,0,1)))
+        bid=record['id']
         aid='roof_ridge_eave_0'+str(1+stable_index(bid,3))
+        source=self.part(aid,subset='ridge')
+        lo,hi=mesh_bounds(source)
         for piece in record['roofPieces']:
-            poly=piece['polygon'];um=(piece['lo']+piece['hi'])/2
-            vs=[Vector(p).dot(v) for p in poly];best=None
-            for j in range(81):
-                q=u*um+v*(min(vs)+(max(vs)-min(vs))*j/80)
-                if inside(q,poly):
-                    z=roof_height(record,q)
-                    if best is None or z>best[0]:best=(z,q)
-            if best is None:continue
-            z,q=best;sy=max(.1,(piece['hi']-piece['lo'])/3)
-            transform=Matrix.Translation(Vector((q.x,q.y,z+.02)))@basis@Matrix.Diagonal((1,sy,1,1))
-            fitted=self.fitted_mesh(aid,None,transform,poly,subset='ridge')
-            if fitted.vertices:self.place(aid,mesh=fitted,building_id=bid,role='ridge_detail')
+            for a,b in ridge_segments(piece):
+                start,end=Vector(a),Vector(b)
+                along=(end-start).normalized();across=Vector((along.y,-along.x,0))
+                basis=Matrix(((across.x,along.x,0,0),(across.y,along.y,0,0),(0,0,1,0),(0,0,0,1)))
+                length=(end-start).length-.05
+                center=(start+end)/2+Vector((0,0,.125))
+                # Map the actual cap bounds, including beam end radii, to the
+                # supported crest. Never stretch over the hip or a roof step.
+                transform=(Matrix.Translation(center)@basis@Matrix.Diagonal((1,length/(hi[1]-lo[1]),1,1))
+                           @Matrix.Translation(Vector((0,-(lo[1]+hi[1])/2,0))))
+                fitted=self.fitted_mesh(aid,None,transform,piece['polygon'],subset='ridge')
+                if fitted.vertices:self.place(aid,mesh=fitted,building_id=bid,role='ridge_detail')
         for i,mount in enumerate(record.get('dormerMounts',[])):
             aid='dormer_0'+str(1+stable_index(bid+str(i),3))
             basis=wall_basis(mount['along'],mount['out']);center=mount['center']
@@ -388,9 +409,11 @@ class AssetLibrary:
                 trunk=bpy.data.objects[prefix+'_trunk'];crown=bpy.data.objects[prefix+'_crown']
                 points=[trunk.matrix_world@v.co for v in trunk.data.vertices[:8]]
                 q=(sum(p.x for p in points)/8,sum(p.y for p in points)/8)
-                allowed=min([boundary_distance(q,poly)-.03]+
-                            [boundary_distance(q,p)-.25 for bid,p in self.buildings]+
-                            [segment_distance(q,a,b)-w/2-.12 for a,b,w in self.roads])
+                limit=boundary_distance(q,poly)-.03;margin=max(0,limit+.25)
+                near=self.building_index.query((q[0]-margin,q[0]+margin,q[1]-margin,q[1]+margin))
+                road_near=self.road_index.query((q[0]-max(0,limit),q[0]+max(0,limit),q[1]-max(0,limit),q[1]+max(0,limit)))
+                allowed=min([limit]+[boundary_distance(q,self.record_by_id[bid]['footprint'])-.25 for bid in near]+
+                            [segment_distance(q,self.roads[i][0],self.roads[i][1])-self.roads[i][2]/2-.12 for i in road_near])
                 aid=('tree_oak_01','tree_poplar_01','tree_pine_01')[i%3]
                 source=self.part(aid);radius=max(math.hypot(v.co.x,v.co.y) for v in source.vertices)
                 height=self.entries[aid]['bounds']['max'][2]
@@ -491,7 +514,7 @@ class AssetLibrary:
             for j in range(2):
                 aid='goods_'+goods[(i+j)%4]+'_01'
                 p=obj.matrix_world@Vector(((j-.5)*width*.50,-.47,1.055))
-                self.place(aid,p,scale=(.49,)*3,basis=obj.rotation_euler.to_matrix().to_4x4(),role='market_goods')
+                self.place(aid,p,scale=(.49,)*3,basis=obj.rotation_euler.to_matrix().to_4x4(),role='market_goods',market_id=obj.get('source_market_id'))
         lookup={r['id']:r for r in records}
         for shop in shop_stats.get('shop_positions',[]):
             recipe=shop['recipe'];origin=Vector((*shop['origin'],0));t=Vector((*shop['facade_direction'],0));n=Vector((*shop['outward'],0))
@@ -524,10 +547,12 @@ class AssetLibrary:
             self.gate_mounts.append({**mount,'objects':[o.name for o in objects],
                                      'passageWidth':max(.2,width-1.0),'passageHeight':2.1})
 
-    def ground_and_courtyard(self,data):
+    def ground_and_courtyard(self,data,structure_polygons=None):
+        from market_clearance import PlacementReservations
+        structures=PlacementReservations(water_polygons=structure_polygons)
         for obj in bpy.context.scene.objects:
-            if obj.name.startswith('Original_road_') or obj.name=='Original_market_square':
-                mat='cobble' if obj.name=='Original_market_square' else 'earth'
+            if obj.name.startswith('Original_road_') or obj.name=='Original_market_square' or obj.get('asset_kind') in ('road_junction_surface','market_plaza'):
+                mat='cobble' if obj.name=='Original_market_square' or obj.get('asset_kind')=='market_plaza' else 'earth'
                 obj.data.materials.clear();obj.data.materials.append(self.materials[mat])
                 if not obj.data.uv_layers:obj.data.uv_layers.new(name='MetreUV')
                 for face in obj.data.polygons:
@@ -553,10 +578,11 @@ class AssetLibrary:
             poly=[(p['x'],p['y']) for p in district['points']];rng=random.Random(stable_index('courtyard/'+district['id'],2**31))
             aid='bench_01' if district['wardType'] in ('Park','Market') else ('fence_01' if stable_index(district['id'],2)==0 else 'firewood_01')
             if placed[aid]>=6:continue
-            dims=self.entries[aid]['dimensions'];radius=math.hypot(dims[0],dims[1])*.5+.12
+            radius=max(math.hypot(v.co.x,v.co.y) for v in self.part(aid).vertices)+.12
             for attempt in range(240):
                 p=(rng.uniform(min(q[0] for q in poly),max(q[0] for q in poly)),rng.uniform(min(q[1] for q in poly),max(q[1] for q in poly)))
                 if not inside(p,poly) or boundary_distance(p,poly)<radius+.05 or not self.clear(p,radius):continue
+                if not structures.clear(p,radius+.15):continue
                 if any(math.dist(p,q)<radius+r+.15 for q,r in blockers):continue
                 obj=self.place(aid,(*p,.045),role='courtyard_decoration');obj['source_district_id']=district['id']
                 obj['asset_kind']='courtyard_decoration';obj['source_semantic']=False
@@ -566,7 +592,8 @@ class AssetLibrary:
         self.replace_features(data,feature_stats)
         self.replace_market(props,shop_stats,records)
         self.mount_gates(gate_mounts)
-        self.ground_and_courtyard(data)
+        from market_integration import fortification_outlines
+        self.ground_and_courtyard(data,fortification_outlines(self,gate_mounts))
         bpy.context.view_layer.update()
         return self.report()
 
@@ -579,6 +606,7 @@ class AssetLibrary:
                 'unusedAssetIds':sorted(set(self.entries)-set(used)),
                 'buildingsWithAuthoredComponents':len({r['sourceBuildingId'] for r in self.instances if r['sourceBuildingId']}),
                 'specialBuildings':self.special_buildings,'cathedralRoles':self.roles,
+                'castleKitEnabled':bool(self.castle_roles),'castleRoles':self.castle_roles,'additionalLibraries':self.additional_libraries,
                 'groves':self.groves,'fountains':self.fountains,'gates':self.gate_mounts,
                 'instances':self.instances,'skippedMounts':self.skipped,
                 'policy':'Preserve original ground footprints and roads. Roles and decoration are explicit design rules. Each placed mesh references an authored library asset; unsafe mounts are skipped.'}
