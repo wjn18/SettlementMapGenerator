@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium } from '@playwright/test';
+import { localJobJson, assertImageOnlyDownloads } from './local-artifacts.mjs';
 import { serializeTown, validateTown } from '@settlement/core';
 import { townHash, copyArtifacts, fingerprints, inspectCache } from '../../apps/playground/server/three-d-cache.mjs';
 
@@ -58,9 +59,9 @@ try {
   }
   assert.equal(finished.status,'complete',JSON.stringify(finished));
   if(reuse){assert.equal(finished.cacheHit,'result');assert.equal(finished.reusedResultFrom,seedId);}
-  const report=await get(finished.files['verification.json']);assert.equal(report.status,'pass');assert.equal(report.markets.version,1);assert.equal(report.markets.passed,true);
+  const report=await localJobJson(finished,'verification.json');assert.equal(report.status,'pass');assert.equal(report.markets.version,1);assert.equal(report.markets.passed,true);
   assert.deepEqual(report.markets.plazas.map(p=>p.id).sort(),ids);assert.ok(report.markets.plazas.every(p=>p.passed));
-  const manifest=await get(finished.files['scene-manifest.json']);
+  const manifest=await localJobJson(finished,'scene-manifest.json');
   assert.equal(manifest.markets.version,1);assert.deepEqual(manifest.markets.plazas.map(p=>p.id).sort(),ids);
   assert.equal(new Set(report.markets.plazas.map(p=>p.groundObject)).size,ids.length,'Every market needs a distinct verified ground object.');
   const contents=new Set();
@@ -72,16 +73,16 @@ try {
   }
   assert.equal(report.counts.verifiedBuildings,original.buildings.length);
   if(original.river)assert.equal(report.river.passed,true);
-  assert.deepEqual(await get(finished.files['source-town.json']),original);
+  assert.deepEqual(await localJobJson(finished,'source-town.json'),original);
   const imagePath=finished.files['city-center-render.png'];assert.ok(imagePath);
   await page.waitForFunction(image=>{const el=document.querySelector('#three-d-image');return !el.hidden&&el.complete&&el.naturalWidth>0&&el.src.includes(image);},imagePath,{timeout:30000});
   const image=await fetch(base+imagePath);assert.equal(image.status,200);const bytes=Buffer.from(await image.arrayBuffer());
   const width=quality==='preview'?1500:3200;assert.equal(bytes.readUInt32BE(16),width);assert.equal(bytes.readUInt32BE(20),width);
-  const blend=await fetch(base+finished.files['scene.blend']+'?download=1');assert.equal(blend.status,200);assert.match(blend.headers.get('content-disposition')??'',/attachment/);assert.ok((await blend.arrayBuffer()).byteLength>100000);
+  await assertImageOnlyDownloads(base,finished);
   await page.screenshot({path:path.join(out,'multi-market-city.png')});assert.deepEqual(errors,[]);
   await fs.writeFile(path.join(out,'web-verification.json'),JSON.stringify({passed:true,jobId:finished.id,seedId,cacheHit:finished.cacheHit,quality,
     imageWidth:width,sourceHash:townHash(original),marketIds:ids,markets:report.markets,requireStalls,pageErrors:errors,
     checks:['import unchanged multi-market snapshot','button enabled','browser POST 202','every source market independently passed',
-      reuse?'verified result cache reused':'Blender generation','exact submitted source','image display and download','scene download']},null,2));
+      reuse?'verified result cache reused':'Blender generation','exact submitted source','image display and download','models and reports stay private']},null,2));
   console.log('PASS multi-market web workflow',finished.id,ids.length,'markets');
 } finally {if(browser)await browser.close();if(server)await server.close();}

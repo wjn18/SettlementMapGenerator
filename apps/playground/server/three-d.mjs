@@ -9,13 +9,14 @@ import { fileURLToPath } from 'node:url';
 // leaving the API on an older schema after the browser picks up a core build.
 import { validateTown, serializeTown } from '../../../packages/core/dist/index.js';
 import { fingerprints, inspectCache, copyArtifacts, townHash } from './three-d-cache.mjs';
-import { failureDiagnostics, diagnosticFiles } from './three-d-diagnostics.mjs';
+import { failureDiagnostics } from './three-d-diagnostics.mjs';
 import { riverSupportError } from '../shared/three-d-support.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const jobsRoot = process.env.SETTLEMENT_3D_JOBS_ROOT ? path.resolve(process.env.SETTLEMENT_3D_JOBS_ROOT) : path.join(root, 'artifacts/web-3d');
 const blender = process.env.BLENDER_PATH ?? 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe';
-const fileNames = new Set(['scene.blend','scene-render.png','render-preview.png','city-center-render.png','castle-wall-detail.png','planning.png','planning.svg','source-town.json','verification.json','scene-manifest.json','asset-integration.json','pipeline-performance.json']);
+// Models and structural data stay on the server for rendering and recovery.
+const publicImageNames = new Set(['scene-render.png','render-preview.png','city-center-render.png','castle-wall-detail.png']);
 const sampleDirs = { 'sample-6': ['3d-minimal-city','minimal-city'], 'sample-12': ['3d-small-town-assets','small-town-assets'], 'sample-12-legacy': ['3d-small-town','small-town'], 'sample-harbor': ['3d-harbor','scene'], 'sample-river': ['3d-river-town','scene'], 'sample-estuary': ['3d-estuary-town','scene'], 'sample-markets': ['3d-multi-market','scene'] };
 sampleDirs['sample-river-harbor']=['3d-river-harbor','scene'];
 sampleDirs['sample-estuary-river-harbor']=['3d-estuary-river-harbor','scene'];
@@ -65,9 +66,9 @@ function install(server) {
   }
   function publicJob(job) {
     const files=filesFor(job), available={};
-    for(const name of fileNames)if((job.status==='complete'||job.status==='failed'&&diagnosticFiles.has(name))&&existsSync(files.resolve(name)))available[name]=`/api/3d/jobs/${job.id}/files/${name}`;
+    for(const name of publicImageNames)if(job.status==='complete'&&existsSync(files.resolve(name)))available[name]=`/api/3d/jobs/${job.id}/files/${name}`;
     const canRecover=!job.sample&&['failed','cancelled'].includes(job.status)&&existsSync(files.resolve('scene.blend'))&&existsSync(files.resolve('scene-manifest.json'));
-    return {...job,canRecover,assetLibraryUsed:Boolean(available['asset-integration.json']),files:available};
+    return {...job,canRecover,assetLibraryUsed:job.status==='complete'&&existsSync(files.resolve('asset-integration.json')),files:available};
   }
   async function stop() {
     if(!child?.pid || !active) return;
@@ -219,11 +220,12 @@ function install(server) {
       }
       if(req.method==='GET' && !match[2])return json(200,publicJob(job));
       if(req.method==='POST' && match[2]==='cancel') {if(active===job.id)await stop();return json(200,publicJob(job));}
-      if(req.method==='GET' && match[2]==='files' && fileNames.has(match[3]) && (job.status==='complete'||job.status==='failed'&&diagnosticFiles.has(match[3]))) {
+      if(req.method==='GET' && match[2]==='files') {
+        if(!publicImageNames.has(match[3])||job.status!=='complete')return json(404,{error:'图片不存在'});
         const name=match[3],file=filesFor(job).resolve(name);
         if(!existsSync(file))return json(404,{error:'文件不存在'});
-        res.setHeader('Content-Type',name.endsWith('.png')?'image/png':name.endsWith('.svg')?'image/svg+xml':name.endsWith('.json')?'application/json':'application/octet-stream');
-        if(url.searchParams.has('download') || name.endsWith('.blend'))res.setHeader('Content-Disposition',`attachment; filename="${name}"`);
+        res.setHeader('Content-Type','image/png');
+        if(url.searchParams.has('download'))res.setHeader('Content-Disposition',`attachment; filename="${name}"`);
         res.setHeader('X-Content-Type-Options','nosniff');
         const stream=createReadStream(file);stream.on('error',()=>res.destroy());stream.pipe(res);return;
       }

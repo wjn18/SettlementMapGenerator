@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { generateTown } from '@settlement/core';
+import { localJobJson, assertImageOnlyDownloads } from './local-artifacts.mjs';
 
 const base=process.env.THREE_D_TEST_BASE ?? 'http://127.0.0.1:5174';
 const out=process.env.THREE_D_TEST_OUTPUT ?? 'artifacts/web-3d-test';await fs.mkdir(out,{recursive:true});
@@ -60,21 +61,21 @@ try {
   }
   assert.equal(finished.status,'complete',JSON.stringify(finished));
   await page.waitForFunction(()=>!document.querySelector('#three-d-image').hidden&&document.querySelector('#three-d-image').naturalWidth===1500);
-  const verification=await (await fetch(base+finished.files['verification.json'])).json();assert.equal(verification.status,'pass');assert.equal(verification.counts.verifiedBuildings,107);
+  const verification=await localJobJson(finished,'verification.json');assert.equal(verification.status,'pass');assert.equal(verification.counts.verifiedBuildings,107);
   assert.equal(finished.assetLibraryUsed,true);
   assert.equal(verification.assetIntegration.passed,true);
   assert.ok(verification.assetIntegration.checkedRidges>0);
   assert.ok(verification.assetIntegration.ridges.every(r=>r.passed&&r.unsupportedVertices===0&&r.maxDistanceToRoof<=.4));
   assert.ok(verification.assetIntegration.usedVariants>20);
-  const assetUse=await (await fetch(base+finished.files['asset-integration.json'])).json();
+  const assetUse=await localJobJson(finished,'asset-integration.json');
   assert.equal(assetUse.enabled,true);
   // This enclosed shed had only an invalid ridge cap before the fix. Its
   // native shell remains; it should not gain a floating cap to meet a count.
   assert.equal(assetUse.buildingsWithAuthoredComponents,106);
   assert.equal(assetUse.instances.some(r=>r.sourceBuildingId==='b99'),false);
   assert.equal(new Set(assetUse.instances.map(r=>r.sourceBuildingId).filter(Boolean)).size,106);
-  const source=await (await fetch(base+finished.files['source-town.json'])).json();assert.deepEqual(source,original);
-  const blend=await fetch(base+finished.files['scene.blend']);assert.equal(blend.status,200);assert.match(blend.headers.get('content-disposition'),/attachment/);assert.ok((await blend.arrayBuffer()).byteLength>10000);
+  const source=await localJobJson(finished,'source-town.json');assert.deepEqual(source,original);
+  await assertImageOnlyDownloads(base,finished);
   await page.screenshot({path:out+'/generated-preview.png'});
   // Cancel a separate owned job and verify the renderer lock is released.
   // A repeated identical request now completes from cache, so use a different
@@ -96,6 +97,6 @@ try {
   assert.equal((await (await fetch(base+'/api/3d/jobs/'+cancelledId)).json()).status,'cancelled');
   assert.equal((await (await fetch(base+'/api/3d/status')).json()).activeId,null);
   assert.deepEqual(errors,[]);
-  await fs.writeFile(out+'/verification.json',JSON.stringify({passed:true,jobId,cancelledId,checks:['existing samples','stale plan notice','cross-origin rejection','invalid input','inland river button enabled','river plus coast rejected','submit current plan','duplicate job guard','reload recovery','real Blender render','107 footprint checks','supported ridge geometry','exact submitted JSON','Blender download','cancel process tree'],roofRidges:{checked:verification.assetIntegration.checkedRidges,passed:verification.assetIntegration.ridges.every(r=>r.passed)},pageErrors:errors},null,2));
+  await fs.writeFile(out+'/verification.json',JSON.stringify({passed:true,jobId,cancelledId,checks:['existing samples','stale plan notice','cross-origin rejection','invalid input','inland river button enabled','river plus coast rejected','submit current plan','duplicate job guard','reload recovery','real Blender render','107 footprint checks','supported ridge geometry','exact submitted JSON','models and reports stay private','cancel process tree'],roofRidges:{checked:verification.assetIntegration.checkedRidges,passed:verification.assetIntegration.ridges.every(r=>r.passed)},pageErrors:errors},null,2));
   console.log('PASS',jobId);
 } finally {await browser.close();}

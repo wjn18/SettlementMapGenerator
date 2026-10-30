@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { chromium } from '@playwright/test';
+import { localJobJson, assertImageOnlyDownloads } from './local-artifacts.mjs';
 import { serializeTown } from '@settlement/core';
 import { townHash, copyArtifacts, fingerprints, inspectCache } from '../../apps/playground/server/three-d-cache.mjs';
 
@@ -76,22 +77,21 @@ try{
   }
   assert.equal(finished.status,'complete',JSON.stringify(finished));
   if(reuse){assert.equal(finished.cacheHit,'result');assert.equal(finished.reusedResultFrom,seedId);}
-  const report=await get(finished.files['verification.json']);
+  const report=await localJobJson(finished,'verification.json');
   assert.equal(report.status,'pass');assert.equal(report.river.passed,true);
   assert.equal(report.counts.verifiedBuildings,original.buildings.length);
-  const source=await get(finished.files['source-town.json']);assert.deepEqual(source,original);
+  const source=await localJobJson(finished,'source-town.json');assert.deepEqual(source,original);
   const imagePath=finished.files['city-center-render.png'];assert.ok(imagePath,'The completed job must expose its center image.');
   await page.waitForFunction(image=>{const el=document.querySelector('#three-d-image');return !el.hidden&&el.complete&&el.naturalWidth>0&&el.src.includes(image);},imagePath,{timeout:30000});
   const image=await fetch(base+imagePath);assert.equal(image.status,200);
   const imageBytes=Buffer.from(await image.arrayBuffer());assert.ok(imageBytes.length>10000);assert.equal(imageBytes.subarray(1,4).toString(),'PNG');
   const expectedWidth=quality==='preview'?1500:3200;assert.equal(imageBytes.readUInt32BE(16),expectedWidth);assert.equal(imageBytes.readUInt32BE(20),expectedWidth);
-  const blend=await fetch(base+finished.files['scene.blend']+'?download=1');assert.equal(blend.status,200);
-  assert.match(blend.headers.get('content-disposition')??'',/attachment/);assert.ok((await blend.arrayBuffer()).byteLength>100000);
+  await assertImageOnlyDownloads(base,finished);
   await page.screenshot({path:path.join(out,'inland-river-city.png')});
   assert.deepEqual(errors,[]);
   await fs.writeFile(path.join(out,'web-verification.json'),JSON.stringify({passed:true,jobId:finished.id,seedId,cacheHit:finished.cacheHit,quality,imageWidth:expectedWidth,
     sourceHash:townHash(original),river:report.river,checks:['import saved inland plan','inland river button enabled','browser POST returns 202',
       reuse?'verified result cache reused':'real Blender generation','saved river structure verification','exact submitted source',
-      'center image visible and downloadable','Blender scene download'],pageErrors:errors},null,2));
+      'center image visible and downloadable','models and reports stay private'],pageErrors:errors},null,2));
   console.log('PASS inland river web workflow',finished.id);
 }finally{await browser.close();if(server)await server.close();}

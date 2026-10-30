@@ -5,6 +5,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { generateTown } from '@settlement/core';
 import { chromium } from '@playwright/test';
+import { localJobJson, assertImageOnlyDownloads } from './local-artifacts.mjs';
 const out=path.resolve('artifacts/harbor-web-test');await fs.mkdir(out,{recursive:true});
 process.env.SETTLEMENT_3D_JOBS_ROOT=path.join(out,'jobs-'+randomUUID());
 const {createServer}=await import('vite');
@@ -29,10 +30,10 @@ try {
   }
   assert.equal(finished.status,'complete',JSON.stringify(finished));
   await page.waitForFunction(()=>document.querySelector('#three-d-image').naturalWidth===1500,null,{timeout:30000});
-  const verification=await api(finished.files['verification.json']);assert.equal(verification.status,'pass');assert.equal(verification.harbor.passed,true);
+  const verification=await localJobJson(finished,'verification.json');assert.equal(verification.status,'pass');assert.equal(verification.harbor.passed,true);
   assert.equal(verification.harbor.boatVariants.length,3);assert(verification.harbor.verifiedDocks>0);
   assert(verification.harbor.boats.every(b=>b.dryInteriorPassed&&b.waterIntersections.length===0));
-  const downloaded=await fetch(base+finished.files['scene.blend']);assert.equal(downloaded.status,200);assert((await downloaded.arrayBuffer()).byteLength>100000);
+  await assertImageOnlyDownloads(base,finished);
   await page.screenshot({path:path.join(out,'coastal-city.png')});
   // The same coast request must reuse this verified scene/photo.
   const cached=await page.evaluate(async()=>{const town=window.__playground.town;const r=await fetch('/api/3d/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({town,quality:'preview',view:'center'})});return {status:r.status,body:await r.json()};});
@@ -52,6 +53,6 @@ try {
   await page.waitForFunction(()=>document.querySelector('#three-d-generate').disabled);
   const rejected=await page.evaluate(async town=>{const r=await fetch('/api/3d/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({town,quality:'preview'})});return r.status;},legacy);assert.equal(rejected,422);
   assert.deepEqual(errors,[]);
-  await fs.writeFile(path.join(out,'verification.json'),JSON.stringify({passed:true,jobId:job.id,cacheId:cacheJob.id,cacheHit:cacheJob.cacheHit,sceneDirectory:path.join(process.env.SETTLEMENT_3D_JOBS_ROOT,job.id),harbor:verification.harbor,checks:['coastal button enabled','browser submits the current plan','real Blender preview','saved geometry verified','all three vessel variants','Blender download','same-plan cached result','inland river button enabled','river plus coast button enabled','missing legacy river surface rejected'],pageErrors:errors},null,2));
+  await fs.writeFile(path.join(out,'verification.json'),JSON.stringify({passed:true,jobId:job.id,cacheId:cacheJob.id,cacheHit:cacheJob.cacheHit,sceneDirectory:path.join(process.env.SETTLEMENT_3D_JOBS_ROOT,job.id),harbor:verification.harbor,checks:['coastal button enabled','browser submits the current plan','real Blender preview','saved geometry verified','all three vessel variants','models and reports stay private','same-plan cached result','inland river button enabled','river plus coast button enabled','missing legacy river surface rejected'],pageErrors:errors},null,2));
   console.log('PASS coastal web workflow and cache',job.id);
 } finally {await browser.close();await server.close();}

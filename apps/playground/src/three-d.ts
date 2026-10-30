@@ -20,7 +20,7 @@ export function createThreeD(getTown:()=>TownData|null) {
   panel.innerHTML=`<div class="three-d-toolbar"><label for="three-d-history">历史结果</label><select id="three-d-history"><option value="">暂无结果</option></select><select id="three-d-framing" aria-label="三维取景"><option value="center">城内放大</option><option value="full">完整全景</option><option value="castle">城堡局部</option></select></div>
     <div class="three-d-job"><strong id="three-d-title">从当前平面图生成三维场景</strong><span id="three-d-meta"></span><p id="three-d-stage" role="status" aria-live="polite">可先查看历史样片，或点击左侧生成按钮。</p><progress id="three-d-progress" aria-label="三维生成进行中" hidden></progress><button id="three-d-cancel" type="button" hidden>取消生成</button><p id="three-d-stale" hidden>此结果对应生成时的规划快照，与当前平面图不同。</p><p id="three-d-error" role="alert" hidden></p></div>
     <div class="three-d-picture"><img id="three-d-image" alt="规划生成的三维轴测渲染图" hidden><div id="three-d-empty">当前还没有三维图<br><small>本机生成通常需要数分钟，完成后会自动显示。</small></div></div>
-    <div id="three-d-downloads" class="three-d-downloads"></div><p id="three-d-footnote" class="three-d-footnote">效果图预览 · 下载 Blender 场景可旋转和编辑。</p>`;
+    <div id="three-d-downloads" class="three-d-downloads"></div><p id="three-d-footnote" class="three-d-footnote">效果图预览 · 可下载当前取景的图片。</p>`;
   document.querySelector('.map-shell')!.append(panel);
   const generate=$<HTMLButtonElement>('three-d-generate'),history=$<HTMLSelectElement>('three-d-history');
   const img=$<HTMLImageElement>('three-d-image'),framing=$<HTMLSelectElement>('three-d-framing');
@@ -58,7 +58,7 @@ export function createThreeD(getTown:()=>TownData|null) {
     if(!job)return;
     $('three-d-title').textContent=`${job.id==='sample-river-harbor'?'内陆河港样片':job.id==='sample-estuary-river-harbor'?'河口双港样片':job.id==='sample-markets'?'多市场河城样片':job.id==='sample-estuary'?'河口定居点样片':job.id==='sample-river'?'穿城河样片':job.sample?'已有样片':'三维场景'} · ${job.size===6?'村落':job.size===12?'小镇':`规模 ${job.size}`}`;
     $('three-d-meta').textContent=`种子 ${job.seed} · ${job.buildings} 栋建筑 · ${job.quality==='preview'?'快速预览':'高清渲染'}`+(job.cacheHit==='result'?' · 复用已完成结果':job.reusedSceneFrom?' · 复用已保存场景':'');
-    $('three-d-footnote').textContent='效果图预览 · 下载 Blender 场景可旋转和编辑。'+(job.assetLibraryUsed?'已使用专用建筑与装饰素材，保留原规划占地。':job.status==='complete'?'此历史结果使用早期通用素材，重新生成可使用新素材。':'');
+    $('three-d-footnote').textContent='效果图预览 · 可下载当前取景的图片。'+(job.assetLibraryUsed?'已使用专用建筑与装饰素材，保留原规划占地。':job.status==='complete'?'此历史结果使用早期通用素材，重新生成可使用新素材。':'');
     const elapsed=Math.max(0,Math.floor(((job.finishedAt?Date.parse(job.finishedAt):Date.now())-Date.parse(job.createdAt))/1000));
     $('three-d-stage').textContent=job.stage+(running(job)?` · 已用时 ${Math.floor(elapsed/60)}分${elapsed%60}秒`:'');
     $('three-d-progress').hidden=!running(job);$('three-d-cancel').hidden=!running(job);
@@ -82,7 +82,7 @@ export function createThreeD(getTown:()=>TownData|null) {
     technical.hidden=job.status!=='failed'||!job.errorSummary||!job.error;
     technicalLog.textContent=job.error??'';
     const links=$('three-d-downloads');links.replaceChildren();
-    for(const [file,label] of [[image,'打开原图'],[job.files['scene.blend'],'下载 Blender 场景'],[job.files['source-town.json'],'规划 JSON'],[job.files['verification.json'],'校验报告'],[job.files['asset-integration.json'],'素材使用清单'],[job.files['pipeline-performance.json'],'耗时报告']] as const) {
+    for(const [file,label] of [[image,'打开原图'],[image,'下载图片']] as const) {
       if(!file)continue;const a=document.createElement('a');a.textContent=label;a.href=file;
       if(label==='打开原图'){a.target='_blank';a.rel='noopener';}else a.href+='?download=1';links.append(a);
     }

@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-export const diagnosticFiles=new Set(['verification.json','pipeline-performance.json']);
-
 /** Keep the original log, but give failed history entries a readable cause. */
 export async function failureDiagnostics(dir) {
   let report;
@@ -24,5 +22,5 @@ export async function failureDiagnostics(dir) {
   };
   const reasons=[...new Set(failures.map(explain))];
   return {failedStage:'verify_scene',validationFailures:failures,
-    errorSummary:reasons.slice(0,3).join('；')+'。'+(failures.length>1?`共 ${failures.length} 项，可下载校验报告查看详情。`:'可下载校验报告查看详情。')};
+    errorSummary:reasons.slice(0,3).join('；')+'。'+(failures.length>1?`共 ${failures.length} 项，请查看技术详情或重试。`:'请查看技术详情或重试。')};
 }
