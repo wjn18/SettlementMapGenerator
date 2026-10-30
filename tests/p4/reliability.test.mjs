@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateTown, validateTown, TownDataError, GENERATOR_VERSION } from '../../packages/core/dist/index.js';
+import { generateTown, validateTown, TownDataError, TERRAIN_GENERATOR_VERSION } from '../../packages/core/dist/index.js';
 import { Model } from '../../packages/core/dist/model.js';
 import { Point, Polygon, containsPolygon } from '../../packages/core/dist/geometry.js';
 import { pointInRing } from '../../packages/map-scene/dist/index.js';
@@ -17,7 +17,7 @@ test('road-first generation is independent of the archived patch routing harness
 test('former farm overflow sites generate contained geometry with bounded attempts', () => {
   for (const options of [{seed:708675149,size:6},{seed:2147483646,size:6,plaza:true,castle:false,walls:true}]) {
     const result=generateTown(options);assert.equal(result.ok,true);assert(result.town.resolved.attempts<=20);
-    assert.equal(result.town.generatorVersion,GENERATOR_VERSION);assert.equal(GENERATOR_VERSION,'0.11.0');
+    assert.equal(result.town.generatorVersion,TERRAIN_GENERATOR_VERSION);
     const vertices=new Map(result.town.vertices.map(v=>[v.id,v]));
     for(const b of result.town.buildings) {
       const district=result.town.districts.find(d=>d.id===b.districtId);

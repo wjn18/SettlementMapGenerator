@@ -2,7 +2,7 @@ import type { GenerateOptions, NormalizedOptions } from './types.js';
 export class OptionsError extends Error {}
 export function normalizeOptions(options: GenerateOptions): NormalizedOptions {
   if (typeof options !== 'object' || options === null || Array.isArray(options)) throw new OptionsError('Options must be an object');
-  const allowed = ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', 'river', 'coast', 'harbor'];
+  const allowed = ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', 'river', 'coast', 'harbor', 'riverHarbor'];
   for (const key of Object.keys(options)) if (!allowed.includes(key)) throw new OptionsError(`Unknown option: ${key}`);
   const integer = (value: unknown, min: number, max: number, name: string): number => {
     if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) throw new OptionsError(`${name} must be an integer in ${min}..${max}`);
@@ -16,6 +16,8 @@ export function normalizeOptions(options: GenerateOptions): NormalizedOptions {
   if (options.river !== undefined && typeof options.river !== 'boolean') throw new OptionsError('river must be boolean');
   if (options.coast !== undefined && options.coast !== false && !['auto', 'east', 'south', 'west', 'north'].includes(options.coast)) throw new OptionsError('coast must be false, auto, east, south, west or north');
   if (options.harbor !== undefined && typeof options.harbor !== 'boolean') throw new OptionsError('harbor must be boolean');
+  if (options.riverHarbor !== undefined && typeof options.riverHarbor !== 'boolean') throw new OptionsError('riverHarbor must be boolean');
+  if (options.riverHarbor && !options.river) throw new OptionsError('riverHarbor requires river: true');
   return {
     seed: integer(options.seed, 1, 2147483646, 'seed'), size: integer(options.size, 6, 100, 'size'),
     plaza: feature('plaza'), castle: feature('castle'), walls: feature('walls'),
@@ -23,5 +25,6 @@ export function normalizeOptions(options: GenerateOptions): NormalizedOptions {
     ...(options.river === undefined ? {} : { river: options.river }),
     ...(options.coast === undefined ? {} : { coast: options.coast }),
     ...(options.harbor === undefined ? {} : { harbor: options.harbor }),
+    ...(options.riverHarbor === undefined ? {} : { riverHarbor: options.riverHarbor }),
   };
 }

@@ -4,6 +4,7 @@ import { Model, Patch } from './model.js';
 import { createWard } from './wards.js';
 import { inRing, pointKey } from './terrain-geometry.js';
 import { planWalledInfill } from './infill.js';
+import { fitCathedral } from './cathedral.js';
 import type { ResolvedFeatures } from './model.js';
 import type { WardType } from './wards.js';
 
@@ -218,10 +219,25 @@ export class SkeletonModel extends Model {
     const available = this.patches.filter(p => p.withinCity && p.infill !== 'green' && p !== this.citadel && p !== this.plaza).sort((a, b) => a.shape.center.length - b.shape.center.length);
     for (const p of this.patches) if (p.infill === 'green') p.ward = createWard('Park', this, p);
     if (this.plaza) this.plaza.ward = createWard('Market', this, this.plaza);
+    // Centrality alone can select an unusable sliver. Test the existing blocks
+    // without moving their roads or parcel boundaries; prefer the nearest site
+    // that holds a useful regular nave and tower.
+    let church: Patch | undefined;
+    if (this.size >= 12) {
+      let bestScore = -Infinity;
+      for (const p of available.slice(0, 12)) {
+        const block = createWard('Cathedral', this, p).getCityBlock();
+        const layout = fitCathedral(block, { context: this.context });
+        if (!layout) continue;
+        const score = layout.hallWidth - p.shape.center.length * 0.015;
+        if (score > bestScore) { bestScore = score; church = p; }
+      }
+      if (!church) throw new RetryableError('No central block can accommodate a regular church');
+    }
     const mix: WardType[] = ['CraftsmenWard', 'CraftsmenWard', 'MerchantWard', 'CraftsmenWard', 'Slum', 'CraftsmenWard', 'PatriciateWard', 'GateWard', 'CraftsmenWard', 'CraftsmenWard', 'MerchantWard', 'Park'];
     available.forEach((p, i) => {
       let type: WardType = mix[(i + r.int(0, 3)) % mix.length];
-      if (i === 0 && this.size >= 12) type = 'Cathedral';
+      if (p === church) type = 'Cathedral';
       else if (i === 1 && this.size >= 24) type = 'AdministrationWard';
       else if (this.citadel && p.shape.borders(this.citadel.shape)) type = 'MilitaryWard';
       else if (this.gates.some(gate => p.shape.includes(gate))) type = 'GateWard';
@@ -248,7 +264,14 @@ export function scalePlannedTown(town: import('./types.js').TownData): void {
   if (town.terrain) {
     const coast = town.terrain.coast;
     if (coast) { coast.shoreline.forEach(scale); coast.water.forEach(scale); }
-    for (const dock of town.terrain.docks) { dock.points.forEach(scale); dock.width *= factor; }
+    for (const dock of town.terrain.docks) {
+      dock.points.forEach(scale); dock.width *= factor;
+      if (dock.riverHarbor) {
+        const { berth, yard, navigation } = dock.riverHarbor;
+        scale(berth.center); berth.length *= factor; berth.beam *= factor;
+        yard.forEach(scale); navigation.points.forEach(scale); navigation.width *= factor;
+      }
+    }
   }
   for (const key of ['minX', 'minY', 'maxX', 'maxY'] as const) town.bounds[key] *= factor;
 }

@@ -11,3 +11,6 @@ legacy/TownGeneratorOS/Export/
 .cache/
 .haxelib/
 artifacts/
+.netlify/
+__pycache__/
+*.py[cod]

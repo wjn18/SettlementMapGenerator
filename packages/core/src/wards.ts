@@ -1,10 +1,13 @@
 // Port of com.watabou.towngenerator.wards, GPL-3.0.
 import { GenerationContext, RetryableError, minimum } from './context.js';
 import { Point, Polygon, distanceToLine, interpolate } from './geometry.js';
-import { bisect, radial, ring } from './cutter.js';
+import { bisect, radial } from './cutter.js';
 import { CurtainWall } from './model.js';
 import { createCastleFootprint } from './castle.js';
 import { partitionLand } from './terrain-geometry.js';
+import { fitCathedral } from './cathedral.js';
+import type { CathedralRole } from './cathedral.js';
+import { polygonTouchesRiver } from './river.js';
 import type { Model, Patch } from './model.js';
 
 type CommonParameters = [minSquare: number, gridChaos: number, sizeChaos: number, emptyProbability: number];
@@ -50,6 +53,7 @@ export function createOrthoBuilding(context: GenerationContext, poly: Polygon, m
 }
 export class Ward {
   geometry: Polygon[] = [];
+  architecturalRoles = new Map<Polygon, CathedralRole>();
   wall: CurtainWall | null = null;
   featureKind: 'grove' | 'statue' | 'fountain' | null = null;
   readonly parameters: CommonParameters | undefined;
@@ -102,6 +106,13 @@ export class Ward {
       return block;
     }
     return p.shape.isConvex() ? p.shape.shrink(inset) : p.shape.buffer(inset);
+  }
+  getStreetFrontages(): Point[][] {
+    const { model: m, patch: p } = this, frontages: Point[][] = [];
+    p.shape.forEdge((a, b) => {
+      if (m.streetWidth(a, b) > 0 || m.plaza && m.plaza.shape.findEdge(b, a) !== -1) frontages.push([a, b]);
+    });
+    return frontages;
   }
   private filterOutskirts(): void {
     if (this.model.plannedLayout) {
@@ -167,9 +178,18 @@ export const wardRegistry: Readonly<Record<WardType, WardStrategy>> = Object.fre
   Cathedral: {
     rate: (m, p) => m.plaza && p.shape.borders(m.plaza.shape) ? -1 / p.shape.square : centerDistance(m, p) * p.shape.square,
     geometry: w => {
-      const c = w.model.context;
-      if (!c.random.bool(0.4)) return createOrthoBuilding(c, w.getCityBlock(), 50, 0.8);
-      const result = ring(w.getCityBlock(), 2 + c.random.float() * 4); c.geometry(result.length); return result;
+      const m = w.model, block = w.getCityBlock();
+      const minX = Math.min(...block.map(p => p.x)), maxX = Math.max(...block.map(p => p.x));
+      const minY = Math.min(...block.map(p => p.y)), maxY = Math.max(...block.map(p => p.y));
+      const roads = [...m.roadWidths].filter(([path, width]) => Math.max(...path.map(p => p.x)) + width / 2 >= minX
+        && Math.min(...path.map(p => p.x)) - width / 2 <= maxX && Math.max(...path.map(p => p.y)) + width / 2 >= minY && Math.min(...path.map(p => p.y)) - width / 2 <= maxY);
+      const layout = fitCathedral(block, { context: m.context, frontages: w.getStreetFrontages(),
+        accepts: shape => !roads.some(([path, width]) => polygonTouchesRiver(shape, { centerline: path, width, bankWidth: 0.15 }))
+          && !m.wallCorridors.some(path => polygonTouchesRiver(shape, { centerline: path, width: 4.4, bankWidth: 0.1 })),
+      });
+      if (!layout) throw new RetryableError('Church site cannot fit a regular nave and square bell tower');
+      w.architecturalRoles = new Map(layout.parts.map(p => [p.shape, p.role]));
+      m.context.geometry(layout.parts.length); return layout.parts.map(p => p.shape);
     },
   },
   Castle: { geometry: w => {

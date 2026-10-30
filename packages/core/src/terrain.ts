@@ -5,7 +5,10 @@ import { SkeletonModel } from './skeleton.js';
 import { GraphNode, shortestPath } from './pathfinding.js';
 import { createWard } from './wards.js';
 import { rebuildCityFortifications } from './fortifications.js';
+import { planGateApproaches, openCastleGates, validateGeneratedGates } from './gate-planning.js';
 import { exportTown } from './export.js';
+import { planWallTowers } from './wall-towers.js';
+import { planRiverHarbors, harborOverlap, riverHarborErrors } from './river-harbor.js';
 import { distanceToPath } from './river.js';
 import { inRing, mixPoint, pointKey, positiveRing, splitSegment, subtractRing } from './terrain-geometry.js';
 import type { Coast, CoastSide, NormalizedOptions, Point2, River, TownData } from './types.js';
@@ -16,7 +19,7 @@ interface Plan {
   local(p: Point2): Point; world(p: Point2): Point;
 }
 interface ShoreEdge { path: Polygon; patch: Patch; kind: 'coast' | 'river' }
-export const TERRAIN_GENERATOR_VERSION = '0.11.0';
+export const TERRAIN_GENERATOR_VERSION = '0.19.0';
 const wet = (p: Point2, plan: Plan): boolean => plan.cuts.some(ring => inRing(ring, p));
 const touches = (shape: Polygon, cuts: Point2[][]): boolean => cuts.some(cut => {
   if (shape.some(p => inRing(cut, p)) || cut.some(p => inRing(shape, p))) return true;
@@ -46,7 +49,7 @@ function planWater(model: Model, request: NormalizedOptions): Plan {
     plan.cuts.push(plan.coastCut);
   }
   if (request.river) {
-    const width = Math.max(5, Math.min(16, radius * 0.105)), bankWidth = 2.8;
+    const width = request.riverHarbor ? Math.max(18, Math.min(32, radius * 0.20)) : Math.max(5, Math.min(16, radius * 0.105)), bankWidth = 2.8;
     let best = Infinity, selected: River | undefined, selectedCut: Point2[] = [];
     for (const offset of [-0.32, 0.32, -0.48, 0.48, -0.15, 0.15]) {
       const riverY = (x: number) => radius * (offset + 0.12 * Math.sin(x / radius * 1.7 + phase));
@@ -277,9 +280,15 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
   model.context.stage = 'buildStreets'; const { shores, bridges } = buildLandRoads(model, plan); yield 'buildStreets';
   model.context.stage = 'createWards'; model.createWards();
   if (plan.coast && request.harbor !== false) for (const { patch, kind } of shores) {
-    if (kind === 'coast' && patch.infill !== 'green' && patch !== model.citadel && patch !== model.plaza) patch.ward = createWard('Harbor', model, patch);
+    if (kind === 'coast' && patch.infill !== 'green' && patch !== model.citadel && patch !== model.plaza && patch.ward?.type !== 'Cathedral') patch.ward = createWard('Harbor', model, patch);
   }
-  yield 'createWards'; model.context.stage = 'buildGeometry';
+  yield 'createWards';
+  model.context.stage = 'planGateApproaches'; planGateApproaches(model, plan.cuts, bridges); yield 'planGateApproaches';
+  const riverPorts = request.riverHarbor && plan.river ? planRiverHarbors(plan.river, shores.map(s => ({ path: s.path,
+    eligible: s.kind === 'river' && s.patch.infill !== 'green' && s.patch !== model.citadel && s.patch !== model.plaza && s.patch.ward?.type !== 'Cathedral' })), bridges, plan.coast?.water, Math.min(4, Math.max(2, Math.ceil(model.size / 24))), model.patches.filter(p => ['Cathedral','Castle','Market'].includes(p.ward?.type ?? '')).map(p => p.shape)) : [];
+  if (request.riverHarbor && riverPorts.length < 2) throw new RetryableError('No safe mixed river harbor with unobstructed end-reach waterways');
+  for (const port of riverPorts) { const patch = shores[port.shoreIndex].patch; patch.ward = createWard('Harbor', model, patch); }
+  model.context.stage = 'buildGeometry';
   if (model.plannedLayout) model.buildGeometry();
   else for (const patch of model.patches) {
     model.context.step();
@@ -288,10 +297,12 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
     // Ward subdivision can overhang acute/concave corners. Keep complete, dry footprints.
     patch.ward!.geometry = patch.ward!.geometry.filter(p => p.square > 0.05 && containsPolygon(patch.shape, p));
   }
+  // Reserve cargo yards before exporting any building footprints.
+  for (const patch of model.patches) if (patch.ward) patch.ward.geometry = patch.ward.geometry.filter(shape => !riverPorts.some(port => harborOverlap(shape, port.riverHarbor.yard)));
   yield 'buildGeometry'; model.context.stage = 'export';
   const town = exportTown(model, request, attempts);
   town.generatorVersion = TERRAIN_GENERATOR_VERSION;
-  if (!request.river && !request.coast) { rebuildCityFortifications(town, [], model.cityEnvelope ?? undefined); return town; }
+  if (!request.river && !request.coast) { rebuildCityFortifications(town, [], model.cityEnvelope ?? undefined); openCastleGates(town); planWallTowers(town,4); validateGeneratedGates(town); return town; }
   const plain = (p: Point2): Point2 => ({ x: p.x, y: p.y });
   town.terrain = { ...(plan.coast ? { coast: { ...plan.coast, shoreline: plan.coast.shoreline.map(plain), water: plan.coast.water.map(plain) } } : {}), waterfronts: [], docks: [] };
   const index = new Map(town.vertices.map(v => [v.id, v]));
@@ -326,7 +337,18 @@ export function* buildTerrainTown(model: Model, request: NormalizedOptions, atte
     if (!town.terrain.docks.length) throw new RetryableError('No accessible harbor frontage');
   }
   trimWalls(town, plan);
+  for (const port of riverPorts) {
+    const shore = shores[port.shoreIndex], id = `dock${town.terrain.docks.length}`;
+    port.riverHarbor.berth.id = `${id}-berth`;
+    town.terrain.docks.push({ id, districtId: town.districts[model.patches.indexOf(shore.patch)].id, roadId: roadFor(shore.path).id,
+      points: port.points, width: port.width, waterbody: 'river', riverHarbor: port.riverHarbor });
+  }
   rebuildCityFortifications(town, plan.cuts, model.cityEnvelope ?? undefined);
+  openCastleGates(town);
+  planWallTowers(town,4);
+  validateGeneratedGates(town);
+  const harborErrors = riverHarborErrors(town);
+  if (harborErrors.length) throw new RetryableError(harborErrors[0]);
   // Include water extents in world bounds, keeping exact bounds validation and exports.
   for (const p of [...(plan.coast?.water ?? []), ...(plan.river?.surface ?? [])]) town.vertices.push({ id: `v${town.vertices.length}`, x: p.x, y: p.y });
   town.bounds = { minX: Math.min(...town.vertices.map(v => v.x)), minY: Math.min(...town.vertices.map(v => v.y)), maxX: Math.max(...town.vertices.map(v => v.x)), maxY: Math.max(...town.vertices.map(v => v.y)) };

@@ -1,5 +1,5 @@
 // Drawing order and palettes ported from watabou/TownGeneratorOS mapping (GPL-3.0).
-import { validateTown, distanceToPath } from '@settlement/core';
+import { validateTown, distanceToPath, berthFootprint } from '@settlement/core';
 import type { TownData, Point2, Bounds, Id, River, Terrain } from '@settlement/core';
 import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoofColor } from './themes.js';
 import type { MapTheme } from './themes.js';
@@ -31,7 +31,7 @@ export interface MapRenderer {
 export function pickScene(scene: MapScene | null, viewport: Viewport, width: number, height: number, x: number, y: number): string | null {
   if (!scene || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > width || y > height) return null;
   const p = { x: viewport.centerX + (x-width/2)/viewport.zoom, y: viewport.centerY + (y-height/2)/viewport.zoom };
-  for (const dock of scene.terrain?.docks ?? []) if (distanceToPath(p, dock.points) <= dock.width / 2) return dock.districtId;
+  for (const dock of scene.terrain?.docks ?? []) if (distanceToPath(p, dock.points) <= dock.width / 2 || dock.riverHarbor && pointInRing(berthFootprint(dock.riverHarbor.berth), p)) return dock.districtId;
   for (const bridge of scene.river?.bridges ?? []) if (distanceToPath(p, bridge.points) <= bridge.width / 2) {
     const ends = [bridge.points[0], bridge.points[bridge.points.length - 1]].sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
     for (const end of ends) { const region = scene.hitRegions.find(r => pointInRing(r.points, end)); if (region) return region.entityId; }
@@ -47,7 +47,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
   validateTheme(palette);
   // The road-first layout exports metre coordinates at four times its planning
   // scale. Keep outline and wall symbols consistent with its building sizes.
-  if (['0.8.0', '0.9.0', '0.10.0', '0.11.0'].includes(town.generatorVersion)) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
+  if (['0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'].includes(town.generatorVersion)) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
   const zoning = options.districtColors === true;
   const detailedColors = zoning || [palette.roof, palette.tree, palette.water, palette.wall].some(color => color !== undefined);
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
@@ -61,7 +61,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     const civic = district.wardType === 'Castle' || district.wardType === 'Market';
     const fill = zoning && (district.withinCity || green)
       ? mixColor(districtColor(palette, district.wardType), palette.paper, green ? 0.3 : civic ? 0.5 : 0.76)
-      : green ? palette.green : ['0.9.0', '0.10.0', '0.11.0'].includes(town.generatorVersion) && !district.withinWalls && !civic ? undefined : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
+      : green ? palette.green : ['0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'].includes(town.generatorVersion) && !district.withinWalls && !civic ? undefined : palette.road !== undefined && district.withinCity ? (civic ? palette.light : palette.road) : undefined;
     if (fill) commands.push({ kind: 'polygon', points: points(district.boundary), fill });
   }
   for (const road of town.roads) if (road.kind === 'external' || palette.road !== undefined || zoning) {
@@ -119,7 +119,7 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
       const before = boundary[(i + boundary.length - 1) % boundary.length], after = boundary[(i + 1) % boundary.length];
       let dx = after.x - before.x, dy = after.y - before.y; const length = Math.sqrt(dx * dx + dy * dy);
       if (length !== 0) { const s = palette.thickStroke * 1.5 / length; dx *= s; dy *= s; }
-      if (['0.10.0', '0.11.0'].includes(town.generatorVersion) && wall.kind === 'city') {
+      if ((['0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'].includes(town.generatorVersion) && wall.kind === 'city') || ['0.13.0', '0.14.0', '0.15.0'].includes(town.generatorVersion)) {
         // The new topology leaves a real opening. Gatehouses flank that gap;
         // drawing the legacy solid bar here would cover the crossing road.
         let left = i, right = i, guard = 0;
@@ -152,9 +152,20 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.parchme
     const path = dock.points.map(p => ({ ...p }));
     commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.dark, dock.width + 0.45, 'butt') });
     commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.light, dock.width, 'butt') });
+    if (dock.riverHarbor) {
+      const { berth, yard } = dock.riverHarbor, u = { x: Math.cos(berth.heading), y: Math.sin(berth.heading) };
+      const shape = [[-.5,0],[-.35,-.45],[.3,-.45],[.5,0],[.3,.45],[-.35,.45]].map(([x,y]) => ({ x: berth.center.x + u.x*x*berth.length-u.y*y*berth.beam, y: berth.center.y+u.y*x*berth.length+u.x*y*berth.beam }));
+      commands.push({ kind: 'polygon', points: yard.map(p => ({ ...p })), fill: palette.road ?? palette.light });
+      commands.push({ kind: 'polygon', points: shape, fill: palette.light, stroke: stroke(palette.dark, palette.normalStroke) });
+      commands.push({ kind: 'polyline', points: [shape[0], shape[3]], stroke: stroke(palette.dark, palette.normalStroke * .6) });
+      if (berth.boat.startsWith('cargo-')) {
+        const sail = [[-.15,-.33],[.2,0],[-.15,.33]].map(([x,y]) => ({x:berth.center.x+u.x*x*berth.length-u.y*y*berth.beam,y:berth.center.y+u.y*x*berth.length+u.x*y*berth.beam}));
+        commands.push({kind:'polygon',points:sail,fill:palette.paper,stroke:stroke(palette.dark,palette.normalStroke*.6)});
+      }
+    }
   }
   const river = town.river ? { ...town.river, ...(town.river.surface ? { surface: town.river.surface.map(p => ({ ...p })) } : {}), centerline: town.river.centerline.map(p => ({ ...p })), bridges: town.river.bridges.map(b => ({ ...b, points: b.points.map(p => ({ ...p })) })) } : undefined;
-  const terrain = town.terrain ? { ...town.terrain, ...(town.terrain.coast ? { coast: { ...town.terrain.coast, shoreline: town.terrain.coast.shoreline.map(p => ({ ...p })), water: town.terrain.coast.water.map(p => ({ ...p })) } } : {}), waterfronts: town.terrain.waterfronts.map(w => ({ ...w })), docks: town.terrain.docks.map(d => ({ ...d, points: d.points.map(p => ({ ...p })) })) } : undefined;
+  const terrain = town.terrain ? { ...town.terrain, ...(town.terrain.coast ? { coast: { ...town.terrain.coast, shoreline: town.terrain.coast.shoreline.map(p => ({ ...p })), water: town.terrain.coast.water.map(p => ({ ...p })) } } : {}), waterfronts: town.terrain.waterfronts.map(w => ({ ...w })), docks: town.terrain.docks.map(d => ({ ...d, points: d.points.map(p => ({ ...p })), ...(d.riverHarbor ? { riverHarbor: { ...d.riverHarbor, berth: { ...d.riverHarbor.berth, center: { ...d.riverHarbor.berth.center } }, yard: d.riverHarbor.yard.map(p => ({ ...p })), navigation: { ...d.riverHarbor.navigation, points: d.riverHarbor.navigation.points.map(p => ({ ...p })) } } } : {}) })) } : undefined;
   return { bounds: { ...town.bounds }, background: palette.paper, commands, hitRegions: town.districts.map(d => ({ entityId: d.id, points: points(d.boundary) })), ...(river ? { river } : {}), ...(terrain ? { terrain } : {}), ...(options.labels ? { labels: buildMapLabels(town, palette) } : {}), ...(options.cartography ? { cartography: createCartography(palette, options.cartography) } : {}) };
 }
 export function pointInRing(points: readonly Point2[], p: Point2): boolean {

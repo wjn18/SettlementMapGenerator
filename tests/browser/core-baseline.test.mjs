@@ -30,8 +30,10 @@ test('Archived FIFO harness: 18 P1 fixtures still match; P4 output validates ind
         const { snapshot } = await import(`${base}/tests/core/legacy-snapshot.mjs`);
         const { installLegacyPaths } = await import(`${base}/tests/core/legacy-path.mjs`);
         const { installLegacyCastles } = await import(`${base}/tests/core/legacy-castle.mjs`);
+        const { installLegacyCathedrals } = await import(`${base}/tests/core/legacy-cathedral.mjs`);
         const restore = installLegacyPaths();
         const restoreCastles = installLegacyCastles();
+        const restoreCathedrals = installLegacyCathedrals();
         const context = new GenerationContext(seed), r = context.random;
         const model = new Model(context, size, { plaza: r.bool(), castle: r.bool(), walls: r.bool() }), attempts = [];
         for (let i = 0; i < 20; i++) {
@@ -40,6 +42,7 @@ test('Archived FIFO harness: 18 P1 fixtures still match; P4 output validates ind
           catch (e) { if (!(e instanceof RetryableError)) throw e; attempt.error = e.message; }
         }
         restore();
+        restoreCathedrals();
         restoreCastles();
         const generated = generateTown({ seed, size });
         if (!generated.ok) throw new Error(JSON.stringify(generated.error));

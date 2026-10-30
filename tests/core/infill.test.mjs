@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateTown, generateTownSteps, validateTown, serializeTown, deserializeTown, estimatePopulation } from '../../packages/core/dist/index.js';
-import { GenerationContext } from '../../packages/core/dist/context.js';
+import { GenerationContext, RetryableError } from '../../packages/core/dist/context.js';
 import { SkeletonModel } from '../../packages/core/dist/skeleton.js';
 import { buildTerrainTown } from '../../packages/core/dist/terrain.js';
 import { partitionLand } from '../../packages/core/dist/terrain-geometry.js';
@@ -42,10 +42,14 @@ test('wall clipping conserves concave land, including separated pieces and bound
 
 test('reported city plans all enclosed land before streets and buildings without changing its wall later', () => {
   const options={seed:915481944,size:100,coast:'auto',river:true,harbor:true,castle:false,plaza:true,walls:true,maxAttempts:40};
-  const model=new SkeletonModel(new GenerationContext(options.seed,12_500_000,312_500),100,{castle:false,plaza:true,walls:true});
-  const iterator=buildTerrainTown(model,options,1);
-  let before, wall, generatedCount, result; const stages=[];
-  for(;;) {
+  const context=new GenerationContext(options.seed,12_500_000,312_500);
+  let model, before, wall, generatedCount, result; const stages=[];
+  // Layout changes alter downstream subdivision draws. Exercise the same
+  // bounded retry contract as public generation, checking every staged plan.
+  for(let attempt=1;attempt<=options.maxAttempts;attempt++) {
+    model=new SkeletonModel(context,100,{castle:false,plaza:true,walls:true});
+    const iterator=buildTerrainTown(model,options,attempt); stages.length=0;
+    try { for(;;) {
     const step=iterator.next(); if(step.done){result=step.value;break;}
     stages.push(step.value);
     if(step.value==='buildWalls') before=area(model.patches.map(p=>p.shape));
@@ -63,7 +67,9 @@ test('reported city plans all enclosed land before streets and buildings without
       for(const p of model.patches.filter(p=>p.infill==='green')) assert.equal(p.ward.type,'Park');
     }
     if(step.value==='buildGeometry') generatedCount=model.patches.reduce((sum,p)=>sum+(p.ward?.geometry.length??0),0);
+    } break; } catch(e) { if(!(e instanceof RetryableError)) throw e; }
   }
+  assert(result,'reported city must finish within the generation retry budget');
   assert.ok(stages.indexOf('planWalledInfill')<stages.indexOf('buildStreets'));
   assert.ok(stages.indexOf('buildStreets')<stages.indexOf('buildGeometry'));
   assert.equal(JSON.stringify(model.cityEnvelope),wall,'infill must not expand the wall again');

@@ -1,6 +1,9 @@
 import { Point, Polygon, containsPolygon, intersect } from './geometry.js';
 import { inRing, intersection, mixPoint, pointKey, splitSegment } from './terrain-geometry.js';
 import { polygonTouchesRiver } from './river.js';
+import { connectCastleToCityWall } from './shared-walls.js';
+import { CITY_GATE_WIDTH, MIN_GATE_PIER } from './gate-planning.js';
+import { RetryableError } from './context.js';
 import type { Point2, TownData, Vertex } from './types.js';
 
 const cross = (a: Point2, b: Point2, c: Point2) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
@@ -44,7 +47,7 @@ export function defensiveEnvelope(points: readonly Point2[], clearance = 3): Pol
 
 /** Replace the city fortification in exported topology. Street/parcel geometry
  * stays in place: crossings share gate vertices and buildings respect the new
- * wall corridor. Castle walls remain their own compact enclosure. */
+ * wall corridor. Nearby castle sides join and share this defensive perimeter. */
 export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] = [], plannedEnvelope?: Polygon): void {
   const wall = town.walls.find(w => w.kind === 'city');
   if (!wall) return;
@@ -85,9 +88,12 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
         hits.push({ t: hit[0], vertex });
         const previous = candidates.find(g => g.vertex.id === vertex.id);
         const sides = [roadSide(mixPoint(p, a, 0.01)), roadSide(mixPoint(p, b, 0.01))];
-        // Oblique roads need a correspondingly wider opening in the wall.
+        // Approaches were turned before building geometry. Never compensate
+        // for an oblique road by stretching the finished gate beyond its cap.
         const sine = Math.abs((b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)) / Math.hypot(b.x - a.x, b.y - a.y) / Point.distance(c, d);
-        const halfWidth = Math.min(8, (road.width / 2 + 0.5) / Math.max(0.35, sine));
+        const width = Math.max(CITY_GATE_WIDTH.min, (road.width + 1) / Math.max(1e-6, sine));
+        if (width > CITY_GATE_WIDTH.max + 1e-5 && sides.includes(1) && sides.includes(-1)) throw new RetryableError('City gate approach remains too oblique for its width limit');
+        const halfWidth = Math.min(CITY_GATE_WIDTH.max, width) / 2;
         if (previous) {
           previous.halfWidth = Math.max(previous.halfWidth, halfWidth);
           previous.inside ||= sides.includes(1); previous.outside ||= sides.includes(-1);
@@ -101,6 +107,11 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
   // Infill streets can end at the wall. Only routes with land connections on
   // both sides need gates, including shared endpoints of two separate roads.
   const crossings = candidates.filter(c => c.inside && c.outside);
+  for (let edge = 0; edge < envelope.length; edge++) {
+    const length = Point.distance(envelope[edge], envelope[(edge + 1) % envelope.length]);
+    const gates = crossings.filter(g => g.edge === edge).sort((a, b) => a.t - b.t);
+    for (let i = 1; i < gates.length; i++) if ((gates[i].t - gates[i - 1].t) * length - gates[i].halfWidth - gates[i - 1].halfWidth < MIN_GATE_PIER - 1e-5) throw new RetryableError('Adjacent city gates must retain a solid separating wall');
+  }
   for (const crossing of crossings) {
     const id = `gate-city-${wall.gateIds.length}`;
     wall.gateIds.push(id); town.gates.push({ id, wallId: wall.id, vertexId: crossing.vertex.id }); town.entrances.push(crossing.vertex.id);
@@ -139,5 +150,6 @@ export function rebuildCityFortifications(town: TownData, waterCuts: Point2[][] 
     town.features = town.features.filter(f => clear(f.boundary));
   }
   for (const d of town.districts) d.withinWalls = d.withinCity && containsPolygon(envelope, d.boundary.map(id => { const v = vertices.get(id)!; return new Point(v.x, v.y); }));
+  connectCastleToCityWall(town,waterCuts);
   town.bounds = { minX: Math.min(...town.vertices.map(v => v.x)), minY: Math.min(...town.vertices.map(v => v.y)), maxX: Math.max(...town.vertices.map(v => v.x)), maxY: Math.max(...town.vertices.map(v => v.y)) };
 }

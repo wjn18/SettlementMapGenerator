@@ -110,6 +110,9 @@ test('harbor toggle, feature combinations, invalid options and strict terrain re
 
 test('legacy river JSON remains importable and disabled terrain preserves dry geometry', () => {
   const dry = generate({ seed: 42, size: 15 }), legacy = structuredClone(dry);
+  // Legacy river carving predates semantic church parts and can remove a
+  // tower independently. Reproduce the old input schema, not a partial modern church.
+  for (const building of legacy.buildings) delete building.architecturalRole;
   legacy.request.river = true; addRiver(legacy);
   assert.deepEqual(deserializeTown(serializeTown(legacy)), legacy);
   const disabled = generate({ seed: 42, size: 15, coast: false, river: false, harbor: false });

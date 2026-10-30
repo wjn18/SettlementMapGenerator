@@ -1,6 +1,7 @@
 import { normalizeOptions, OptionsError } from './options.js';
 import { wardRegistry } from './wards.js';
 import { normalizeMapName } from './names.js';
+import { riverHarborErrors } from './river-harbor.js';
 import type { TownData, Point2, Vertex, Id } from './types.js';
 
 export class TownDataError extends Error {
@@ -38,7 +39,7 @@ export function validateTown(value: unknown): asserts value is TownData {
   const town = object(value, 'town', ['schemaVersion', 'generatorVersion', 'request', 'resolved', 'vertices', 'districts', 'buildings', 'features', 'roads', 'walls', 'gates', 'entrances', 'center', 'bounds', ...['river', 'terrain', 'atlas'].filter(k => has(value, k))]);
   if (town.schemaVersion !== '1') fail('Unsupported schemaVersion');
   string(town.generatorVersion, 'generatorVersion');
-  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', ...['river', 'coast', 'harbor'].filter(k => has(town.request, k))]);
+  const rawRequest = object(town.request, 'request', ['seed', 'size', 'plaza', 'castle', 'walls', 'maxAttempts', ...['river', 'coast', 'harbor', 'riverHarbor'].filter(k => has(town.request, k))]);
   let request: ReturnType<typeof normalizeOptions>;
   try { request = normalizeOptions(rawRequest as unknown as TownData['request']); }
   catch (e) { if (e instanceof OptionsError) fail(e.message); throw e; }
@@ -74,10 +75,11 @@ export function validateTown(value: unknown): asserts value is TownData {
     if (!Number.isFinite(area) || area <= 0) fail('Ring must have positive finite signed area');
     return ids;
   }
-  const districts = new Set<string>(), cityDistricts = new Set<string>();
+  const districts = new Set<string>(), cityDistricts = new Set<string>(), districtTypes = new Map<string, string>();
   for (const value of array(town.districts, 'districts', 4096)) {
     const d = object(value, 'district', ['id', 'boundary', 'wardType', 'withinCity', 'withinWalls']); districts.add(id(d.id)); ring(d.boundary);
     const type = string(d.wardType, 'wardType'); if (!Object.hasOwn(wardRegistry, type)) fail('Unknown ward type');
+    districtTypes.set(d.id as string, type);
     boolean(d.withinCity, 'withinCity'); boolean(d.withinWalls, 'withinWalls');
     if (d.withinCity) cityDistricts.add(d.id as string);
     if (d.withinWalls && (!d.withinCity || !resolved.walls)) fail('Invalid district wall membership');
@@ -97,9 +99,19 @@ export function validateTown(value: unknown): asserts value is TownData {
     if (assigned.size !== cityDistricts.size) fail('Named regions must cover every city district');
   }
   for (const kind of ['buildings', 'features'] as const) for (const value of array(town[kind], kind)) {
-    const b = object(value, kind, kind === 'features' ? ['id', 'districtId', 'boundary', 'kind'] : ['id', 'districtId', 'boundary']);
+    const b = object(value, kind, kind === 'features' ? ['id', 'districtId', 'boundary', 'kind'] : ['id', 'districtId', 'boundary', ...(has(value, 'architecturalRole') ? ['architecturalRole'] : [])]);
     id(b.id); if (!districts.has(string(b.districtId, 'districtId'))) fail('Missing district reference'); ring(b.boundary);
     if (kind === 'features') choice(b.kind, ['grove', 'statue', 'fountain'], 'feature kind');
+    if (has(b, 'architecturalRole')) {
+      choice(b.architecturalRole, ['main_hall', 'bell_tower', 'annex'], 'church architectural role');
+      if (districtTypes.get(b.districtId as string) !== 'Cathedral') fail('Church role requires a Cathedral district');
+    }
+  }
+  for (const [district, type] of districtTypes) if (type === 'Cathedral') {
+    const buildings = (town.buildings as ObjectData[]).filter(b => b.districtId === district);
+    if (buildings.some(b => has(b, 'architecturalRole')) && (buildings.some(b => !has(b, 'architecturalRole'))
+      || buildings.filter(b => b.architecturalRole === 'main_hall').length !== 1
+      || buildings.filter(b => b.architecturalRole === 'bell_tower').length !== 1)) fail('Church needs exactly one explicit nave and bell tower, with roles for every part');
   }
   const roadIds = new Set<string>();
   for (const value of array(town.roads, 'roads', 4096)) {
@@ -171,13 +183,30 @@ export function validateTown(value: unknown): asserts value is TownData {
       if (front.kind === 'coast' ? !has(terrain, 'coast') : !has(town, 'river')) fail('Missing waterfront waterbody');
     }
     const docks = array(terrain.docks, 'docks', 512);
-    if (docks.length && (!has(terrain, 'coast') || request.harbor === false)) fail('Docks disagree with harbor option');
     for (const entry of docks) {
-      const dock = object(entry, 'dock', ['id', 'districtId', 'roadId', 'points', 'width']); id(dock.id);
+      const dock = object(entry, 'dock', ['id', 'districtId', 'roadId', 'points', 'width', ...['waterbody', 'riverHarbor'].filter(k => has(entry, k))]); id(dock.id);
+      const waterbody = has(dock, 'waterbody') ? choice(dock.waterbody, ['coast', 'river'], 'dock waterbody') : 'coast';
+      if (waterbody === 'coast' ? !has(terrain, 'coast') || request.harbor === false : !request.riverHarbor || !has(town, 'river')) fail('Docks disagree with harbor option');
+      if ((waterbody === 'river') !== has(dock, 'riverHarbor')) fail('River dock requires its planning data');
       if (!districts.has(string(dock.districtId, 'dock district')) || !waterfronts.has(string(dock.roadId, 'dock road'))) fail('Invalid dock connection');
       path(dock.points, 'dock path'); positive(dock.width, 'dock width');
+      if (waterbody === 'river') {
+        const plan = object(dock.riverHarbor, 'river harbor', ['version', 'layout', 'berth', 'yard', 'navigation']);
+        if (plan.version !== 1 || plan.layout !== 'along-bank') fail('Unsupported river harbor layout');
+        const berth = object(plan.berth, 'berth', ['id', 'boat', 'center', 'heading', 'length', 'beam']); id(berth.id);
+        choice(berth.boat, ['rowboat', 'cargo', 'cargo-sloop', 'cargo-ketch', 'cargo-lugger'], 'river boat'); number(berth.heading, 'berth heading');
+        positive(berth.length, 'berth length'); positive(berth.beam, 'berth beam');
+        const center = object(berth.center, 'berth center', ['x', 'y']); number(center.x, 'berth x'); number(center.y, 'berth y');
+        if ((center.x as number) < minX || (center.x as number) > maxX || (center.y as number) < minY || (center.y as number) > maxY) fail('Berth outside bounds');
+        path(plan.yard, 'cargo yard', true);
+        const navigation = object(plan.navigation, 'navigation', ['points', 'width', 'exit']);
+        path(navigation.points, 'navigation path'); positive(navigation.width, 'navigation width'); choice(navigation.exit, ['start', 'end'], 'river exit');
+        const fronts = terrain.waterfronts as { roadId: string; kind: string }[];
+        if (!fronts.some(w => w.roadId === dock.roadId && w.kind === 'river') || !(town.districts as { id: string; wardType: string }[]).some(d => d.id === dock.districtId && d.wardType === 'Harbor')) fail('River harbor must connect to its river waterfront district');
+      }
     }
-  } else if (request.coast) fail('Missing coast terrain');
+  } else if (request.coast || request.riverHarbor) fail('Missing waterfront terrain');
+  if (request.riverHarbor) { const errors = riverHarborErrors(value as TownData); if (errors.length) fail(errors[0]); }
 }
 
 // Fixed lexical key order makes serialized snapshots independent of object property order.

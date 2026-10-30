@@ -145,6 +145,9 @@ export class Model {
         p.ward!.geometry = p.ward!.geometry.filter(shape => shape.square > 0.05 && containsPolygon(p.shape, shape)
           && !nearby.some(([path, width]) => polygonTouchesRiver(shape, { centerline: path, width, bankWidth: 0.05 }))
           && !this.wallCorridors.some(path => polygonTouchesRiver(shape, { centerline: path, width: 4.4, bankWidth: 0 })));
+        if (p.ward!.type === 'Castle' && p.ward!.geometry.length !== 1) throw new RetryableError('Gate approaches must preserve one unobstructed keep footprint');
+        if (p.ward!.type === 'Cathedral' && ['main_hall', 'bell_tower'].some(role =>
+          !p.ward!.geometry.some(shape => p.ward!.architecturalRoles.get(shape) === role))) throw new RetryableError('Church must preserve its nave and compact tower');
       }
     }
   }
@@ -166,7 +169,8 @@ export class Model {
 export class CurtainWall {
   readonly shape: Polygon; readonly segments: boolean[]; readonly gates: Point[] = []; towers: Point[] = [];
   constructor(real: boolean, model: Model, readonly patches: Patch[], reserved: Point[]) {
-    this.shape = patches.length === 1 ? patches[0].shape : Model.findCircumference(patches);
+    // Planned gate subdivisions belong to the wall, not to its land parcel.
+    this.shape = patches.length === 1 ? (model.plannedLayout ? new Polygon(patches[0].shape) : patches[0].shape) : Model.findCircumference(patches);
     if (patches.length !== 1 && real && !model.plannedLayout) {
       const factor = Math.min(1, 40 / patches.length), smooth = this.shape.map(v => reserved.includes(v) ? v : this.shape.smoothVertex(v, factor));
       this.shape.forEach((v, i) => v.set(smooth[i]));

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { TERRAIN_GENERATOR_VERSION } from '../../packages/core/dist/index.js';
 
 test('reported wall gaps become urban land in every renderer and survive JSON export', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
@@ -18,16 +19,22 @@ test('reported wall gaps become urban land in every renderer and survive JSON ex
       }
       return result;
     };
-    // Centres of three large rural parcels enclosed by the 0.10 wall in the reported seed.
+    // These parcels were enclosed by the 0.10 wall. Later layouts can put a
+    // parcel outside the wall; only land still enclosed must become urban.
     const oldGaps = [{x:-415.074,y:57.325},{x:-540.013,y:66.183},{x:196.486,y:-455.364}];
     return {
       version: town.generatorVersion,
-      filled: oldGaps.map(p => town.districts.some((d: any) => d.withinCity && inside(d.boundary, p))),
+      gaps: oldGaps.map(p => ({
+        enclosed: town.walls.some((w: any) => w.kind === 'city' && inside(w.boundary, p)),
+        urban: town.districts.some((d: any) => d.withinCity && inside(d.boundary, p)),
+      })),
       population: api.population.city.residents,
       landArea: api.population.city.urbanAreaM2,
     };
   });
-  expect(report.version).toBe('0.11.0'); expect(report.filled).toEqual([true, true, true]);
+  expect(report.version).toBe(TERRAIN_GENERATOR_VERSION);
+  expect(report.gaps.filter(g => g.enclosed).length).toBeGreaterThan(0);
+  expect(report.gaps.filter(g => g.enclosed).every(g => g.urban)).toBe(true);
   expect(report.population).toBe(Math.round(report.landArea / 100));
   for (const kind of ['canvas', 'svg', 'openfl']) {
     await page.locator('#renderer').selectOption(kind);
