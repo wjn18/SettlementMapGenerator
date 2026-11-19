@@ -155,7 +155,7 @@ namesPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { 
 regionSelect.addEventListener('change', selectRegion);
 function saveName(target: string, value: string): void {
   if (!town) return;
-  try { town = renameTown(town, target, value); revision++; refreshNames(); drawTheme(); syncURL(); tooltip.hidden = true; status.textContent = '地名已保存 · 城市布局保持不变'; }
+  try { town = renameTown(town, target, value); revision++; refreshNames(); drawTheme(); syncURL(); threeD.update(); tooltip.hidden = true; status.textContent = '地名已保存 · 城市布局保持不变'; }
   catch (e) { $('name-error').hidden = false; $('name-error').textContent = e instanceof Error ? e.message : String(e); }
 }
 $('city-name-form').addEventListener('submit', event => { event.preventDefault(); saveName('city', $<HTMLInputElement>('city-name').value); });
@@ -181,6 +181,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
     }
   }
   const nextScene = buildMapScene(next, palette(), sceneOptions());
+  if (source === 'generated') dropRiverSampleLink();
   renderer.render(nextScene); town = next; scene = nextScene; revision++; setFields(next.request);
   error.hidden = true; tooltip.hidden = true; $<HTMLButtonElement>('export').disabled = false;
   $<HTMLButtonElement>('export-image').disabled = false; $<HTMLButtonElement>('export-svg').disabled = false;
@@ -195,7 +196,7 @@ function present(next: TownData, source: 'generated' | 'imported'): void {
   sidebar.setPending(false);
   $('hover-label').textContent = '将指针移入地图，查看街区用途';
   fit(); syncURL(); drawTheme(); document.body.dataset.ready = 'true';
-  void threeD.update();
+  threeD.update();
 }
 async function generate(value = options()): Promise<void> {
   const request = ++generationRequest;
@@ -239,12 +240,17 @@ $('export-svg').addEventListener('click', () => { void exportMap('svg'); });
 $('import').addEventListener('click', () => file.click());
 file.addEventListener('change', async () => {
   const selected = file.files?.[0]; if (!selected) return;
+  const request=++generationRequest;
   generation.cancel();
+  $<HTMLFieldSetElement>('parameters').disabled = false; $('cancel').hidden = true; sidebar.setGenerating(false);
   try {
     if (selected.size > 64_000_000) throw new Error('地图文件超过 64 MB 上限');
-    const loaded = deserializeTown(await selected.text()); present(loaded, 'imported');
-  } catch (e) { notifyError(`导入失败：${e instanceof Error ? e.message : String(e)}`); }
-  finally { file.value = ''; }
+    const json = await selected.text();
+    if (request !== generationRequest) return;
+    const loaded = deserializeTown(json);
+    dropRiverSampleLink(); present(loaded, 'imported');
+  } catch (e) { if (request === generationRequest) notifyError(`导入失败：${e instanceof Error ? e.message : String(e)}`); }
+  finally { if (file.files?.[0] === selected) file.value = ''; }
 });
 $('export').addEventListener('click', () => {
   if (!town) return;
@@ -309,4 +315,27 @@ if (params.has('coast')) initial.coast = (params.get('coast') === 'false' ? fals
 if (params.has('harbor')) initial.harbor = (params.get('harbor') === 'true' ? true : params.get('harbor') === 'false' ? false : params.get('harbor')) as boolean;
 if (params.has('riverHarbor')) initial.riverHarbor = (params.get('riverHarbor') === 'true' ? true : params.get('riverHarbor') === 'false' ? false : params.get('riverHarbor')) as boolean;
 theme.value=normalizeThemeName(params.get('theme'));
-setFields(initial); void generate(initial);
+function dropRiverSampleLink() {
+  if (!params.has('sample')) return;
+  const url = new URL(location.href);
+  url.searchParams.delete('sample'); params.delete('sample');
+  history.replaceState(null, '', url);
+}
+async function loadInitialTown() {
+  const samples={
+    'arch-river':()=>import('./river-pilot/assets/river-town.json?url'),
+    'river-port':()=>import('./river-pilot/assets/river-port.json?url'),
+    'estuary':()=>import('./river-pilot/assets/estuary.json?url'),
+  };
+  const key=params.get('sample');
+  if (!key || !Object.hasOwn(samples,key)) { await generate(initial); return; }
+  const request = ++generationRequest;
+  try {
+    const { default: url } = await samples[key as keyof typeof samples]();
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('城镇样本加载失败，请重新载入或生成地图。');
+    const saved = deserializeTown(await response.text());
+    if (request === generationRequest && params.has('sample')) present(saved, 'imported');
+  } catch (err) { if (request === generationRequest && params.has('sample')) notifyError(String(err)); }
+}
+setFields(initial); void loadInitialTown();

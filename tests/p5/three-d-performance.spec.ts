@@ -43,9 +43,10 @@ test('an instant finished-result cache hit does not show a running task',async({
     }
     return route.fulfill({json:{available:true,activeId:null,jobs}});
   });
-  await page.goto('/?test=1&seed=7&size=6&castle=false&walls=true&plaza=true');
-  await expect(page.locator('body')).toHaveAttribute('data-ready','true');await expect(page.locator('#three-d-generate')).toBeEnabled();
+  await page.goto('/?test=1&view=blender&seed=7&size=6&castle=false&walls=true&plaza=true');
+  await expect(page.locator('body')).toHaveAttribute('data-ready','true');
   await openSidebarTask(page, 'three-d');
+  await expect(page.locator('#three-d-generate')).toBeEnabled();
   await page.locator('#three-d-generate').click();
   await expect(page.locator('#three-d-history')).toHaveValue(id);await expect(page.locator('#three-d-meta')).toContainText('复用已完成结果');
   await expect(page.locator('#three-d-cancel')).toBeHidden();await expect(page.locator('#three-d-progress')).toBeHidden();await expect(page.locator('#three-d-generate')).toBeEnabled();

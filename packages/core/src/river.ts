@@ -14,7 +14,7 @@ export function distanceToPath(p: Point2, path: readonly Point2[]): number {
   return best;
 }
 function cross(a: Point2, b: Point2, p: Point2): number { return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); }
-function segmentsDistance(a: Point2, b: Point2, c: Point2, d: Point2): number {
+export function segmentsDistance(a: Point2, b: Point2, c: Point2, d: Point2): number {
   if (cross(a, b, c) * cross(a, b, d) <= 0 && cross(c, d, a) * cross(c, d, b) <= 0 &&
     Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)) <= Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) &&
     Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y)) <= Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y))) return 0;

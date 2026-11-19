@@ -1,4 +1,6 @@
 export { generateTown, generateTownSteps } from './generator.js';
+export { selectWallTowerIds } from './wall-towers.js';
+export { buildRoadGeometry, type RoadGeometry } from './road-geometry.js';
 export { GENERATOR_VERSION } from './export.js';
 export { TERRAIN_GENERATOR_VERSION } from './terrain.js';
 export { createTownAtlas, getTownAtlas, renameTown, normalizeMapName } from './names.js';

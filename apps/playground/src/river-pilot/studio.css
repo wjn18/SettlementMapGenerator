@@ -1,0 +1,77 @@
+.river-studio {
+  --forest: #294d3f;
+  --border: #d4d4c4;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: #293e34;
+  background: #f9f8f2;
+  font: 14px/1.5 Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+.river-studio *, .river-studio *::before { box-sizing: border-box; }
+.river-studio [hidden] { display: none !important; }
+.river-studio h1, .river-studio p { margin: 0; }
+.river-studio button, .river-studio select {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: auto; min-height: 36px; margin: 0; padding: 7px 13px;
+  font: inherit; font-weight: 500; color: var(--forest); cursor: pointer; touch-action: manipulation;
+  border: 1px solid var(--border); border-radius: 6px; background: #fcfbf6;
+}
+.river-studio button:disabled { opacity: .45; cursor: default; }
+.river-studio button:not(:disabled):hover { border-color: #819483; background: #e9eee5; }
+.river-studio button:focus-visible, .river-studio select:focus-visible, .river-frame canvas:focus-visible { outline: 3px solid #a57b45; outline-offset: -3px; }
+.river-studio svg { width: 17px; height: 17px; flex: none; }
+.river-head, .river-tools, .river-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.river-head { padding: 18px clamp(16px,3vw,48px); border-bottom: 1px solid var(--border); }
+.river-title, .river-actions, .river-source, .river-frames, .river-foot span { display: flex; gap: 9px; align-items: center; }
+.river-title { gap: 15px; }
+.river-title p { font-size: 11px; color: #6b7568; letter-spacing: .12em; }
+.river-title h1 { margin-top: 1px; font: 600 clamp(22px,2.1vw,32px)/1.2 "Noto Serif CJK SC","Songti SC",SimSun,serif; letter-spacing: .045em; }
+.river-studio .river-back { border-radius: 50%; width: 38px; height: 38px; padding: 0; }
+.river-actions button[aria-pressed="true"] { border-color: #a4b7a3; background: #e3ebdf; }
+.river-studio .river-primary, .river-studio .river-primary:not(:disabled):hover { color: #fff; background: var(--forest); border-color: var(--forest); }
+.river-tools { padding: 9px clamp(16px,3vw,48px); justify-content: flex-end; }
+.river-source { margin-right: auto; }
+.river-sample-name { font-weight: 500; color: #526151; font-size: 13px; }
+.river-source label, .river-caption span { margin: 0; font-size: 12px; color: #616c60; }
+.river-frames { gap: 0; }
+.river-frames button { border-radius: 0; font-size: 12px; min-height: 32px; }
+.river-frames button + button { margin-left: -1px; }
+.river-frames button:first-child { border-radius: 6px 0 0 6px; }
+.river-frames button:last-child { border-radius: 0 6px 6px 0; }
+.river-workspace { display: grid; grid-template-columns: minmax(0,1fr); flex: 1; min-height: 0; gap: 12px; padding: 0 clamp(12px,2vw,32px); }
+.river-workspace.paired { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.river-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: #f4eedf; }
+.river-caption { display: flex; flex: none; align-items: center; justify-content: space-between; min-height: 38px; padding: 6px 15px; border-bottom: 1px solid #d9d8cb; background: #f4f4ea; }
+.river-caption strong { display: inline-flex; align-items: center; gap: 7px; font: 600 14px/1.2 Georgia,serif; }
+.river-caption i { width: 7px; height: 7px; border-radius: 50%; background: #53836c; }
+.river-caption a { color: var(--forest); text-decoration: underline; text-underline-offset: 2px; }
+.river-mat { position: relative; display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; container-type: size; overflow: hidden; flex: 1; min-height: 0; background: #eeeada; }
+.river-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.paired .river-frame, .river-mat img { width: min(100cqw,100cqh); height: min(100cqw,100cqh); }
+.river-mat img { display: block; object-fit: contain; }
+.river-frame canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.river-frame canvas:active { cursor: grabbing; }
+.river-foot { min-height: 40px; padding: 7px clamp(16px,3vw,48px); color: #58685b; font-size: 12px; }
+.river-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 7px 3vw; background: #f8f1db; }
+@media (max-width: 700px) {
+  .river-head { padding: 10px 12px; } .river-title { gap: 7px; }
+  .river-actions { gap: 4px; } .river-actions button { font-size: 12px; padding: 7px; gap: 4px; }
+  .river-tools { padding: 7px 12px; flex-wrap: wrap; } .river-source select { max-width: 160px; font-size: 12px; }
+  .river-workspace { padding: 0 7px; gap: 5px; }
+  .river-workspace.paired { grid-template-columns: 1fr; grid-template-rows: repeat(2,minmax(0,1fr)); }
+  .river-caption { min-height: 27px; padding: 2px 9px; }
+  .river-foot { align-items: flex-start; flex-direction: column; gap: 0; padding: 5px 10px; font-size: 11px; }
+  .river-frames { max-width: 100%; overflow-x: auto; }
+  .river-frames button { flex: none; padding: 5px 8px; }
+  .river-studio .river-actions select { font-size: 11px; padding: 5px 3px; }
+}
+@media (max-width: 430px) {
+  .river-title h1 { font-size: 20px; }
+  .river-title p { font-size: 10px; }
+  .river-studio .river-back { width:30px; height:30px; min-height:30px; }
+  .river-actions svg { display:none; }
+  .river-head { gap:3px; }
+}

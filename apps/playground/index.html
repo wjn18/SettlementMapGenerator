@@ -39,7 +39,11 @@
     </fieldset></form>
     <details id="sidebar-advanced" class="advanced-tools"><summary><svg class="icon" aria-hidden="true"><use href="#icon-sliders"/></svg><strong>高级工具</strong><span>绘制与比较</span><svg class="icon chevron" aria-hidden="true"><use href="#icon-chevron"/></svg></summary><div class="advanced-content"><label for="renderer">绘制方式</label><select id="renderer"><option value="canvas">Canvas 2D · 默认</option><option value="svg">SVG · 矢量</option><option value="openfl">OpenFL · 对照</option></select><a class="text-link" href="/compare.html" target="_blank" rel="noopener">地图并排比较 <span aria-hidden="true">↗</span></a></div></details>
     </section>
-    <section id="sidebar-three-d" class="task-panel" role="tabpanel" aria-labelledby="task-three-d" tabindex="0" hidden><div class="panel-heading"><h2>三维场景</h2><p>将当前平面规划转化为三维城镇。</p></div><div id="three-d-controls-host"></div></section>
+    <section id="sidebar-three-d" class="task-panel" role="tabpanel" aria-labelledby="task-three-d" tabindex="0" hidden>
+      <div class="panel-heading"><h2>三维场景</h2></div>
+      <label id="three-d-mode-label" for="three-d-mode" hidden>渲染方式<select id="three-d-mode"><option value="live">实时漫游 · Three.js</option><option value="blender">本地出图 · Blender</option></select></label>
+      <div id="live-controls"></div><div id="blender-controls" class="three-d-controls" hidden></div>
+    </section>
     <section id="sidebar-population" class="task-panel" role="tabpanel" aria-labelledby="task-population" tabindex="0" hidden><div class="panel-heading"><h2>人口估算</h2><p>查看城镇人口与各区域分配。</p></div>
     <section class="population-card" aria-label="人口估算">
       <div class="population-head"><strong id="population-total">—</strong><span>城区常住人口</span></div>
@@ -63,12 +67,18 @@
   </aside>
   <main>
     <div class="topbar"><div><span class="eyebrow">TOWN ATLAS</span><h2 id="map-title">城镇图册 <span>№ 12345</span></h2></div><div class="map-actions"><label class="names-toggle"><input id="show-names" type="checkbox" checked>地名</label><button id="edit-names" type="button" aria-expanded="false" aria-controls="names-panel">编辑地名</button><label class="theme-label">图纸<select id="theme"><option value="illustrated">手绘羊皮纸</option><option value="blueprint">建筑蓝图</option><option value="ancient">古地图</option><option value="colour">田园彩绘</option><option value="ink">墨色</option><option value="monochrome">黑白</option></select></label></div></div>
+    <nav class="three-d-tabs" aria-label="地图视图">
+      <button type="button" id="view-plan" aria-pressed="true" aria-controls="map">平面规划</button><button type="button" id="view-three-d" aria-pressed="false" aria-controls="live-town">三维效果</button>
+      <span class="workspace-summary"><span id="map-district-count">—</span> 个城区地块 <i aria-hidden="true"></i> <span id="map-building-count">—</span> 栋建筑</span>
+    </nav>
     <section class="cartography-tools" aria-label="地图辅助元素">
       <div class="cartography-options"><label><input id="show-grid" type="checkbox" checked>网格</label><label class="grid-spacing">间距<select id="grid-size" aria-label="网格间距"><option value="auto">自动</option><option value="25">25 m</option><option value="50">50 m</option><option value="100" selected>100 m</option><option value="200">200 m</option></select></label><label><input id="show-scale" type="checkbox" checked>比例尺</label><label><input id="show-compass" type="checkbox" checked>罗盘</label><output id="grid-readout"></output></div>
       <div class="zoom-tools"><button id="zoom-out" aria-label="缩小">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="放大">+</button><button id="fit" aria-label="适应城镇">⌖</button></div>
     </section>
     <div class="map-shell">
       <div id="map" tabindex="0" role="img" aria-label="城镇地图。滚轮缩放，拖动平移，方向键移动，按 0 复位。"></div>
+      <section id="live-town" aria-label="当前城镇实时三维视图" hidden></section>
+      <section id="three-d-panel" aria-label="本地 Blender 渲染结果" hidden></section>
       <div id="tooltip" role="tooltip" hidden></div>
       <section id="names-panel" class="names-panel" aria-label="城市与区域地名" hidden>
         <div class="names-heading"><strong>城市与区域</strong><button id="close-names" type="button" aria-label="关闭地名编辑">×</button></div>

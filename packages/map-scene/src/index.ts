@@ -1,5 +1,5 @@
 // Drawing order and palettes ported from watabou/TownGeneratorOS mapping (GPL-3.0).
-import { validateTown, distanceToPath, berthFootprint } from '@settlement/core';
+import { validateTown, distanceToPath, berthFootprint, buildRoadGeometry } from '@settlement/core';
 import type { TownData, Point2, Bounds, Id, River, Terrain } from '@settlement/core';
 import { THEMES, validateTheme, roofColor, mixColor, districtColor, districtRoofColor, waterColor } from './themes.js';
 import type { MapTheme } from './themes.js';
@@ -58,7 +58,8 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.illustr
   // scale. Keep outline and wall symbols consistent with its building sizes.
   const version=Number(town.generatorVersion.match(/^0\.(\d+)\./)?.[1]??0);
   if (version>=8) palette = { ...palette, normalStroke: palette.normalStroke * 4, thickStroke: palette.thickStroke * 4 };
-  const illustration=options.illustration!==false?createIllustration(town,palette):undefined;
+  const roads=buildRoadGeometry(town);
+  const illustration=options.illustration!==false?createIllustration(town,palette,roads):undefined;
   const zoning = options.districtColors === true;
   const detailedColors = zoning || [palette.roof, palette.tree, palette.water, palette.wall].some(color => color !== undefined);
   const vertices = new Map(town.vertices.map(v => [v.id, v]));
@@ -78,12 +79,16 @@ export function buildMapScene(town: TownData, palette: MapTheme = THEMES.illustr
     if (fill) commands.push({ kind: 'polygon', points: points(district.boundary), fill });
   }
   for (const road of town.roads) if (road.kind === 'external' || palette.road !== undefined || zoning) {
+    const path=roads.paths.get(road.id)!;
     if (palette.road !== undefined || zoning) {
-      commands.push({ kind: 'polyline', points: points(road.vertexIds), stroke: stroke(palette.road ?? palette.paper, road.width) });
+      commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.road ?? palette.paper, road.width) });
       continue;
     }
-    commands.push({ kind: 'polyline', points: points(road.vertexIds), stroke: stroke(palette.medium, road.width + palette.normalStroke, 'butt') });
-    commands.push({ kind: 'polyline', points: points(road.vertexIds), stroke: stroke(palette.paper, Math.max(0.01, road.width - palette.normalStroke)) });
+    commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.medium, road.width + palette.normalStroke, 'butt') });
+    commands.push({ kind: 'polyline', points: path, stroke: stroke(palette.paper, Math.max(0.01, road.width - palette.normalStroke)) });
+  }
+  if (palette.road !== undefined || zoning) for (const junction of roads.junctions) {
+    for (const corner of junction.corners) commands.push({kind:'polygon',points:corner,fill:palette.road ?? palette.paper});
   }
   const geometry = new Map<Id, { id: Id; boundary: Id[]; kind: 'building' | 'grove' | 'fountain' | 'statue' }[]>();
   const water = waterColor(palette);

@@ -40,6 +40,24 @@
 }
 .three-d-tabs button:first-child { border-radius: 7px 0 0 7px; }
 .three-d-tabs button:nth-child(2) { margin-left: -1px; border-radius: 0 7px 7px 0; }
+#live-town { position: absolute; inset: 0; z-index: 4; background: #f9f8f2; }
+#live-town .river-workspace { padding: 0; }
+#live-town .river-pane { border: 0; border-radius: 0; }
+#live-town .river-foot { padding-inline: 14px; }
+#live-town .live-status { margin: 20px; font-size: 14px; }
+#live-town .live-status + button { align-self: flex-start; margin: 0 20px; }
+#three-d-mode-label { margin-bottom: 22px; }
+#three-d-mode { margin-top: 7px; }
+#live-controls fieldset { margin: 0 0 23px; padding: 0; border: 0; min-width: 0; }
+#live-controls legend { margin-bottom: 11px; padding: 0; color: #294b3d; font-size: 14px; font-weight: 600; }
+.live-frames { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.live-frames button { min-height: 36px; }
+.live-export { display: grid; gap: 8px; }
+.live-export select { width: 100%; margin: 0; }
+.live-export button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.live-export svg { width: 16px; height: 16px; }
+.live-export .river-primary { background: #294d3f; color: white; }
+.live-export button[aria-pressed=true] { background: #e3ebdf; }
 .three-d-tabs button[aria-pressed=true] {
   z-index: 1;
   border-color: #2d5142;

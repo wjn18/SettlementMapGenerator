@@ -58,7 +58,7 @@ const page=await browser.newPage({viewport:{width:1500,height:1050}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const get=async url=>{const response=await fetch(base+url);assert.equal(response.status,200,url);return response.json();};
 try{
-  await page.goto(base+'/?test=1');await page.waitForSelector('body[data-ready="true"]');
+  await page.goto(base+'/?test=1&view=blender');await page.waitForSelector('body[data-ready="true"]');
   await page.evaluate(text=>window.__playground.load(text),serializeTown(original));
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled,null,{timeout:120000});
   assert.equal(await page.locator('#river').inputValue(),'true');

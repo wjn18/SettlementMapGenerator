@@ -1,0 +1,15 @@
+{
+  "name": "@settlement/renderer-three",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": {
+    "@settlement/core": "0.4.0",
+    "polygon-clipping": "0.15.7",
+    "three": "0.180.0"
+  },
+  "devDependencies": { "@types/three": "0.180.0" }
+}

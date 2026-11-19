@@ -32,15 +32,19 @@ try{
   assert.equal(await page.evaluate(()=>window.__playground.town.terrain.docks.filter(d=>d.waterbody==='river').length),0);
   assert.equal(new URL(page.url()).searchParams.get('riverHarbor'),'false');
   for(const sample of samples){
+    await page.click('#task-generate');
+    if(!await page.locator('#sidebar-advanced').evaluate(el=>el.open)) await page.click('#sidebar-advanced summary');
     await page.setInputFiles('#file',{name:'river-harbor.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(sample.source))});
     await page.waitForFunction(expected=>JSON.stringify(window.__playground.town)===expected,JSON.stringify(sample.source));
     assert.equal(await page.locator('#river-harbor').inputValue(),'true');
     assert.deepEqual(await page.evaluate(()=>window.__playground.town),sample.source);
     for(const renderer of ['canvas','svg','openfl']){await page.selectOption('#renderer',renderer);await page.waitForTimeout(200);assert(await page.locator('#map').evaluate(el=>el.children.length>0));}
     await page.selectOption('#renderer','canvas');
+    await page.click('#task-files');
     const downloaded=page.waitForEvent('download');await page.click('#export');const download=await downloaded;
     assert.deepEqual(JSON.parse(await fs.readFile(await download.path(),'utf8')),sample.source);
     await page.screenshot({path:path.join(out,sample.name+'-2d.png')});
+    await page.click('#task-three-d'); await page.selectOption('#three-d-mode','blender');
     await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled);await page.selectOption('#three-d-quality','preview');
     const posted=page.waitForResponse(r=>r.url().endsWith('/api/3d/jobs')&&r.request().method()==='POST');await page.click('#three-d-generate');
     const response=await posted;assert.equal(response.status(),202);const job=await response.json();

@@ -44,7 +44,7 @@ try {
   base=base.replace(/\/$/,'');browser=await chromium.launch({channel:'chrome',headless:true});
   const page=await browser.newPage({viewport:{width:1500,height:1050}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   const get=async file=>{const response=await fetch(base+file);assert.equal(response.status,200);return response.json();};
-  await page.goto(base+'/?test=1');await page.waitForSelector('body[data-ready="true"]');
+  await page.goto(base+'/?test=1&view=blender');await page.waitForSelector('body[data-ready="true"]');
   await page.evaluate(text=>window.__playground.load(text),serializeTown(original));
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled,null,{timeout:120000});
   assert.ok(!(await page.locator('#three-d-support').textContent()).includes('不支持多个市场'));

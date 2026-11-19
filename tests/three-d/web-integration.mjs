@@ -12,7 +12,7 @@ const page=await browser.newPage({viewport:{width:1500,height:1000}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 let jobId;
 try {
-  await page.goto(base+'/?seed=7&size=6&walls=true&plaza=true&castle=false&test=1');
+  await page.goto(base+'/?view=blender&seed=7&size=6&walls=true&plaza=true&castle=false&test=1');
   await page.waitForSelector('body[data-ready="true"]');
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled,null,{timeout:120000});
   await page.locator('#view-three-d').click();

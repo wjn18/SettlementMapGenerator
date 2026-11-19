@@ -1,4 +1,5 @@
-import type { TownData, Point2, Bounds } from '@settlement/core';
+import type { TownData, Point2, Bounds, RoadGeometry } from '@settlement/core';
+import { buildRoadGeometry } from '@settlement/core';
 import type { DrawCommand, Stroke } from './index.js';
 import { mixColor, waterColor as themeWaterColor } from './themes.js';
 import type { MapTheme } from './themes.js';
@@ -72,7 +73,7 @@ class Grid<T> {
 }
 
 /** Deterministic vector ornament: the source planning geometry is never changed. */
-export function createIllustration(town:TownData,palette:MapTheme):Illustration {
+export function createIllustration(town:TownData,palette:MapTheme,paving:RoadGeometry=buildRoadGeometry(town)):Illustration {
   const result:Illustration={paper:[],fields:[],water:[],roofs:[],trees:[],harbor:[],symbols:[],landmarks:[],details:{trees:0,fields:0,waves:0,boats:0,piers:0}};
   const unit=Number(town.generatorVersion.match(/^0\.(\d+)\./)?.[1]??0)>=8?4:1;
   const seed=town.resolved.seed,vertices=new Map(town.vertices.map(v=>[v.id,v]));
@@ -122,10 +123,13 @@ export function createIllustration(town:TownData,palette:MapTheme):Illustration 
   }
 
   const roads=new Grid<{a:Point2;b:Point2;width:number}>(unit*16),buildings=new Grid<Point2[]>(unit*16),districts=new Grid<{shape:Point2[];urban:boolean;park:boolean}>(unit*24);
-  for(const road of town.roads){const path=ring(road.vertexIds);for(let i=1;i<path.length;i++){const item={a:path[i-1],b:path[i],width:road.width},box=bounds([item.a,item.b]);roads.add({minX:box.minX-road.width,maxX:box.maxX+road.width,minY:box.minY-road.width,maxY:box.maxY+road.width},item);}}
+  for(const road of town.roads){const path=paving.paths.get(road.id)!;for(let i=1;i<path.length;i++){const item={a:path[i-1],b:path[i],width:road.width},box=bounds([item.a,item.b]);roads.add({minX:box.minX-road.width,maxX:box.maxX+road.width,minY:box.minY-road.width,maxY:box.maxY+road.width},item);}}
+  const corners=new Grid<Point2[]>(unit*16);
+  for(const junction of paving.junctions) for(const corner of junction.corners) corners.add(bounds(corner),corner);
   for(const building of town.buildings){const shape=ring(building.boundary);buildings.add(bounds(shape),shape);}
   for(const d of town.districts){const shape=ring(d.boundary);districts.add(bounds(shape),{shape,urban:d.withinCity,park:d.wardType==='Park'});}
-  const nearRoad=(p:Point2,r:number)=>roads.near(p,r).some(road=>segmentDistance(p,road.a,road.b)<road.width/2+r);
+  const nearRoad=(p:Point2,r:number)=>roads.near(p,r).some(road=>segmentDistance(p,road.a,road.b)<road.width/2+r) ||
+    corners.near(p,r).some(shape=>inside(shape,p)||shape.some((a,i)=>segmentDistance(p,a,shape[(i+1)%shape.length])<r));
   const nearBuilding=(p:Point2,r:number)=>buildings.near(p,r).some(shape=>inside(shape,p)||shape.some((a,i)=>segmentDistance(p,a,shape[(i+1)%shape.length])<r));
   const fields:Point2[][]=[];
   const rural=town.districts.filter(d=>!d.withinCity&&['Farm','Ward'].includes(d.wardType)).map(d=>({d,shape:ring(d.boundary)})).filter(item=>inExtent(center(item.shape))).sort((a,b)=>distance(center(a.shape),town.center)-distance(center(b.shape),town.center));

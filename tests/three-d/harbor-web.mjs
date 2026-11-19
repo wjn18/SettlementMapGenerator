@@ -15,7 +15,7 @@ const browser=await chromium.launch({channel:'chrome',headless:true});
 const page=await browser.newPage({viewport:{width:1500,height:1050}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const api=async p=>(await fetch(base+p)).json();
 try {
-  await page.goto(base+'/?seed=7&size=6&coast=east&harbor=true&river=false&castle=false&walls=false&plaza=true&test=1');
+  await page.goto(base+'/?view=blender&seed=7&size=6&coast=east&harbor=true&river=false&castle=false&walls=false&plaza=true&test=1');
   await page.waitForSelector('body[data-ready="true"]');
   await page.waitForFunction(()=>!document.querySelector('#three-d-generate').disabled,null,{timeout:120000});
   assert.equal(await page.locator('#coast').inputValue(),'east');

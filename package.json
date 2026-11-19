@@ -15,7 +15,7 @@
     "dev": "npm run build:packages && npm run dev --workspace @settlement/playground",
     "dev:probe": "npm run dev --workspace @settlement/openfl-probe",
     "build": "npm run build:packages && npm run build --workspace @settlement/playground && npm run build --workspace @settlement/openfl-probe",
-    "build:packages": "npm run build:core && npm run build --workspace @settlement/map-scene && npm run build --workspace @settlement/renderer-openfl && npm run build --workspace @settlement/renderer-canvas && npm run build --workspace @settlement/renderer-svg",
+    "build:packages": "npm run build:core && npm run build --workspace @settlement/map-scene && npm run build --workspace @settlement/renderer-openfl && npm run build --workspace @settlement/renderer-canvas && npm run build --workspace @settlement/renderer-svg && npm run build --workspace @settlement/renderer-three",
     "build:core": "npm run build --workspace @settlement/core",
     "generate": "node scripts/generate-town.mjs",
     "sample:3d": "node scripts/generate-3d-sample.mjs",

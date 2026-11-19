@@ -11,5 +11,5 @@ export default defineConfig({
     '.npmrc','.yarnrc.yml','**/.git/**',
     '**/*.blend*','**/artifacts/**',`${normalizePath(jobsRoot)}/**`,
   ]}},
-  build:{rollupOptions:{input:{main:resolve(import.meta.dirname,'index.html'),compare:resolve(import.meta.dirname,'compare.html')}}},
+  build:{rollupOptions:{input:{main:resolve(import.meta.dirname,'index.html'),compare:resolve(import.meta.dirname,'compare.html'),river:resolve(import.meta.dirname,'river.html')}}},
 });

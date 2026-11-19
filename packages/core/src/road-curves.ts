@@ -2,6 +2,13 @@ import { Point,Polygon } from './geometry.js';
 import { inRing,splitSegment } from './terrain-geometry.js';
 import type { Point2 } from './types.js';
 
+export function quadraticBend(start: Point2, corner: Point2, end: Point2, steps: number): Point[] {
+  return Array.from({length:steps+1}, (_,i) => {
+    const t=i/steps, s=1-t;
+    return new Point(s*s*start.x+2*s*t*corner.x+t*t*end.x, s*s*start.y+2*s*t*corner.y+t*t*end.y);
+  });
+}
+
 /** Tangent-continuous fillets. Shared graph nodes and gate centers stay fixed;
  * short bends without enough room for the road width remain explicit corners. */
 export function filletRoad(path: readonly Point[], width:number, protectedPoints:ReadonlySet<Point>, waterCuts:Point2[][]):Point[] {
@@ -24,9 +31,7 @@ export function filletRoad(path: readonly Point[], width:number, protectedPoints
       if(minimumRadius<width*.55)continue;
       const start=new Point(p.x-u.x*trim,p.y-u.y*trim),end=new Point(p.x+v.x*trim,p.y+v.y*trim);
       const steps=Math.max(8,Math.ceil(angle/(Math.PI/36)));
-      const samples=Array.from({length:steps+1},(_,j)=>{
-        const t=j/steps,s=1-t;return new Point(s*s*start.x+2*s*t*p.x+t*t*end.x,s*s*start.y+2*s*t*p.y+t*t*end.y);
-      });
+      const samples=quadraticBend(start,p,end,steps);
       if(samples.slice(1).every((q,j)=>dry(samples[j],q))){curve=samples;break;}
     }
     out.push(...curve??[p]);

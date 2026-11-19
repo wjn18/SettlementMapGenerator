@@ -15,6 +15,7 @@
 | 保存、分享与导出 | 导入 / 导出地图 JSON，通过 URL 分享设置与地名，分别导出 PNG 图片和 SVG 矢量图，包含当前显示的地名及辅助元素。 |
 | 算法库复用 | 在不依赖浏览器和 OpenFL 的环境中生成地图，通过 JSON 将实际几何交给其他工具或平台。 |
 | 本地三维生成 | 将当前平面规划交给 Blender，生成线稿淡彩预览与高清图；支持进度、取消、历史结果及图片下载。 |
+| 三维效果 | 在原地图画布中浏览当前规划的街屋、市场、教堂、主堡和码头，旋转或双击建筑看近景，按当前机位导出 PNG。 |
 
 ## 当前生成流程
 
@@ -44,12 +45,22 @@ npm run dev
 
 打开 [城镇地图工坊](http://127.0.0.1:5174)，即可开始生成地图。
 
-### 从网页生成三维
+### 实时浏览三维城镇
+
+在工坊点击「生成地图」或导入 JSON，再点击地图上方「三维效果」或左侧「三维场景」，即可在同一画布查看这份规划。切回「平面规划」后，再次打开同一座城的三维会保留相机位置。拖动旋转，滚轮或双指缩放，双击建筑对准立面。侧栏提供该城的地标取景，以及长边 1500 或 3200 像素的 PNG 导出。网页使用 WebGL 2。[打开工坊三维视图](http://127.0.0.1:5174/?view=3d)
+
+内置样本包括 170 栋建筑的石拱桥城、101 栋建筑的城堡河港和 433 栋建筑的河口双港。三城分别配有来自同一规划的 Blender 城内样片和原机位。点击返回可以在二维工坊查看选中的规划。[沿街店铺](http://127.0.0.1:5174/river.html?focus=street) · [主堡](http://127.0.0.1:5174/river.html?sample=river-port&focus=castle) · [河口码头](http://127.0.0.1:5174/river.html?sample=estuary&focus=harbor)
+
+屋面和墙体沿实际建筑轮廓生成。窗扇、挂招、钟架、角塔、泊船等复用项目的原始模型，近景按屏幕尺度显示细木工和货物。静态构建直接使用已打包的 GLB。更新原始素材后，可运行 `python scripts/prepare-three-kits.py` 重建网页模型和尺寸目录，脚本依赖 NumPy 和 Pillow。
+
+生产构建同样提供 `/river.html`。构建后运行 `node --test tests/three-d/river-pilot.test.mjs` 可检查建筑墙脚、两岸通行和桥洞。在已启动的生产预览上运行 `node tests/three-d/river-pilot-web.mjs http://127.0.0.1:4174` 可验证旋转、触控、导出和换图。
+
+### 在本地工坊使用 Blender 出图
 
 本机需安装 Blender（当前验证版本 5.2）；默认查找 `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe`，其他安装位置请在启动服务前设置 `BLENDER_PATH`。
 
 1. 生成或导入一张内陆、沿河、沿海或河口平面图。可先打开[内陆河城示例](http://127.0.0.1:5174/?seed=7&size=12&coast=false&river=true&walls=true&castle=false&plaza=true)、[沿海港城示例](http://127.0.0.1:5174/?seed=7&size=6&coast=east&harbor=true&river=false&walls=false&castle=false&plaza=true)或[河口港城示例](http://127.0.0.1:5174/?seed=7&size=12&coast=east&harbor=true&river=true&walls=true&castle=false&plaza=true)。海岸支持四个方向，港口可以关闭。
-2. 在左侧「三维场景」选择快速预览（1500 px）或高清（3200 px），点击「生成当前地图的 3D」。未点击「生成地图」的参数修改不会混入当前规划。
+2. 在左侧「三维场景」将「渲染方式」切换为「本地出图 · Blender」，选择快速预览（1500 px）或高清（3200 px），点击「生成当前地图的 3D」。渲染使用最近一次生成或导入的规划。
 3. 上方「平面规划 / 三维效果」切换视图。默认只生成「城内放大」，选择「完整全景 / 城堡局部」会复用模型并按需生成该图。相同规划再次生成同质量、同取景时，直接复用已完成结果。三维页显示真实任务阶段，可以取消；刷新页面后任务与历史仍可找回。
 4. 完成并通过结构校验后，可查看原图或下载当前取景的 PNG 图片。三维文件接口只公开渲染图片，模型、规划快照及校验和耗时报告保存在后台，用于渲染、缓存和重试。历史结果来自其他规划时有明确提示。
 
@@ -218,7 +229,7 @@ npm run preview
 
 在 Netlify 中连接 `wjn18/SettlementMapGenerator` 仓库，生产分支选择 `main`。仓库根目录的 `netlify.toml` 指定 Node.js 24、构建命令 `npm run build` 和发布目录 `apps/playground/dist`；安装依赖与构建均从仓库根目录执行。连接后，推送到 `main` 会自动触发构建和发布。
 
-线上站点提供二维地图生成、三种绘制器、并排比较、保存分享和导出。Blender 三维任务仍需本机 `npm run dev` 服务；静态站点会显示本地三维服务不可用，并禁用三维生成按钮。
+静态构建包含二维工坊和 Three.js 河城漫游。Blender 图片任务和历史结果通过本机 `npm run dev` 服务访问。
 
 ### 回归与批量检查
 
