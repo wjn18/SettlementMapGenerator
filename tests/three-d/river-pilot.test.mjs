@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { deserializeTown, generateTown, serializeTown } from '@settlement/core';
+import { deserializeTown, generateTown, selectWallTowerIds, serializeTown } from '@settlement/core';
 import { buildRiverScene } from '@settlement/renderer-three';
 
 const sample = deserializeTown(readFileSync(new URL('../../apps/playground/src/river-pilot/assets/river-town.json', import.meta.url), 'utf8'));
@@ -108,6 +108,37 @@ test('all six planned river-town openings have a fitted, passable gatehouse and 
     }
   }
   assert.deepEqual([...trims].sort(), ['gate_arch_trim_01', 'gate_arch_trim_02']);
+});
+
+test('city and castle wall towers have an open platform and alternating solid and low parapet sections at their planned sites', () => {
+  const {town}=generateTown({seed:7,size:12,river:true,walls:true,castle:true,plaza:true});
+  const rendered=buildRiverScene(town), positions=new Map(town.vertices.map(v=>[v.id,local(town,v)]));
+  const selected=selectWallTowerIds(town);
+  assert.ok(rendered.focus.tower);
+  for(const wall of town.walls) {
+    const ids=selected.get(wall.id);
+    assert.ok(ids.length);
+    for(const id of ids) {
+      const key=wall.id+'/'+id, center=positions.get(id), view=rendered.towers[key];
+      assert.deepEqual([view.target[0],view.target[2]],center);
+      const span=rendered.town.spans.find(s=>s.id===key);
+      const pts=rendered.town.positions.subarray(span.start*3,(span.start+span.count)*3);
+      let radius=0;
+      for(let i=0;i<pts.length;i+=3) radius=Math.max(radius,Math.hypot(pts[i]-center[0],pts[i+2]-center[1]));
+      assert.ok(radius<=3.10002,'stonework stays inside original clearance');
+      const topAt=p=>Math.max(...heights(rendered.town,key,p));
+      const deck=topAt(center);
+      const sampleRim=angle=>topAt([center[0]+.85*radius*Math.cos(angle),center[1]+.85*radius*Math.sin(angle)]);
+      const rim=Array.from({length:120},(_,i)=>sampleRim(i*Math.PI/60));
+      assert.ok(rim.every(Number.isFinite));
+      assert.ok(Math.min(...rim)>deck+.5 && Math.max(...rim)-Math.min(...rim)>.9,key);
+      const loops=rendered.mounts.filter(m=>m.source===key && m.kit==='castle_keep_openings_01__arrow_loop');
+      assert.ok(loops.length>=2,key);
+    }
+  }
+  assert.equal(Object.keys(rendered.towers).length,[...selected.values()].flat().length);
+  const open=generateTown({seed:42,size:6,walls:false,castle:false}).town;
+  assert.equal(buildRiverScene(open).focus.tower,undefined);
 });
 
 test('legacy solid-wall gates open through the masonry, unrelated wall gaps stay empty', () => {

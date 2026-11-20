@@ -7,7 +7,7 @@ export type Kit = keyof typeof kitCatalog;
 export type Library = (typeof kitCatalog)[Kit]['library'];
 export interface Mount { kit: Kit; source: string; position: XYZ; yaw: number; scale: XYZ; detail: number }
 export interface Focus { target: XYZ; direction: XYZ; span: number }
-export type FocusName = 'street' | 'church' | 'castle' | 'market' | 'harbor' | 'gate' | 'road';
+export type FocusName = 'street' | 'church' | 'castle' | 'market' | 'harbor' | 'gate' | 'tower' | 'road';
 export function mount(kit: Kit, source: string, p: XY, h: number, yaw = 0, scale: XYZ = [1,1,1], detail = 0): Mount {
   return { kit, source, position: world(p,h), yaw, scale, detail };
 }

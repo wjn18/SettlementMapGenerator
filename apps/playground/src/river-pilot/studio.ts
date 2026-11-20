@@ -55,7 +55,7 @@ export function mountRiverStudio(root: HTMLElement, context: StudioContext) {
   const embedded='town' in context;
   const current=embedded ? context.town : null;
   const controls=embedded ? context.sidebar : root;
-  const frameButtons = '<button data-frame="full" title="让整座城镇适应画布">全城</button><button data-frame="start">初始机位</button><button data-frame="street">街屋</button><button data-frame="road">道路转弯</button><button data-frame="gate">城门</button><button data-frame="church">教堂</button><button data-frame="castle">主堡</button><button data-frame="market">集市</button><button data-frame="harbor">码头</button><button data-frame="bridge">桥头</button>';
+  const frameButtons = '<button data-frame="full" title="让整座城镇适应画布">全城</button><button data-frame="start">初始机位</button><button data-frame="street">街屋</button><button data-frame="road">道路转弯</button><button data-frame="gate">城门</button><button data-frame="tower">塔楼</button><button data-frame="church">教堂</button><button data-frame="castle">主堡</button><button data-frame="market">集市</button><button data-frame="harbor">码头</button><button data-frame="bridge">桥头</button>';
   const actions = `<button type="button" data-ui="compare" aria-pressed="false">${icon('split')}<span>对照样片</span></button><select aria-label="导出长边" data-ui="size"><option value="1500">1500 px</option><option value="3200">3200 px</option></select><button type="button" data-ui="save" class="river-primary" disabled>${icon('download')}<span>导出 PNG</span></button>`;
   root.classList.add('river-studio');
   const standaloneHeader = `

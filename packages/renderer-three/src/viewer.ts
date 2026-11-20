@@ -195,7 +195,7 @@ export function createRiverViewer(host: HTMLElement, city: RiverScene, reference
     const hit=ray.intersectObject(townSurface.children[0],false)[0];
     if(hit?.faceIndex==null) return;
     const i=hit.faceIndex*3, source=city.town.spans.find(s=>i>=s.start && i<s.start+s.count);
-    const focus = source && (city.buildings[source.id] ?? city.gates[source.id]);
+    const focus = source && (city.buildings[source.id] ?? city.gates[source.id] ?? city.towers[source.id]);
     if (focus) inspect(focus);
   }
   canvas.addEventListener('dblclick',pick);

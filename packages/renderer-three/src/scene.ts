@@ -11,7 +11,7 @@ export interface RiverScene {
   terrain: PackedMesh; town: PackedMesh; townBounds: [XYZ, XYZ]; bridgeFocus: XYZ; bridgeViewDirection: XYZ;
   props: { type: 'oak' | 'fountain'; position: XYZ; size: number }[];
   mounts: Mount[]; focus: Partial<Record<FocusName,Focus>>; buildings: Record<string,Focus>; gates: Record<string,Focus>;
-  junctionCenters: Record<string,XYZ>;
+  junctionCenters: Record<string,XYZ>; towers: Record<string,Focus>;
 }
 export function buildRiverScene(town: TownData): RiverScene {
   const river = town.river;
@@ -71,6 +71,7 @@ export function buildRiverScene(town: TownData): RiverScene {
   }
   const defenses = fortifications(city, town, vertex, mounts);
   if (defenses.focus) focus.gate = defenses.focus;
+  if (defenses.towerFocus) focus.tower = defenses.towerFocus;
   for(const d of town.districts.filter(d=>d.wardType==='Market')) {
     const view=market(city,d,d.boundary.map(vertex),index,mounts,town.resolved.seed);
     if(view) focus.market??=view;
@@ -103,5 +104,5 @@ export function buildRiverScene(town: TownData): RiverScene {
     }
   }
   const junctionCenters = Object.fromEntries(roads.junctions.map(j => [j.id, world(j.center, .1)]));
-  return { terrain: terrain.pack(), town: city.pack(), townBounds: [lo, hi], props, mounts,focus,buildings, gates: defenses.gates, junctionCenters, bridgeFocus, bridgeViewDirection };
+  return { terrain: terrain.pack(), town: city.pack(), townBounds: [lo, hi], props, mounts,focus,buildings, gates: defenses.gates, towers: defenses.towers, junctionCenters, bridgeFocus, bridgeViewDirection };
 }

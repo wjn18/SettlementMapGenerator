@@ -5,6 +5,7 @@ import clip, { type Polygon } from 'polygon-clipping';
 import { at, circle, MeshBatch, pair, point, strip, world, type XY } from './mesh.js';
 import { inRing, type Focus, type Mount } from './placement.js';
 import { buildWallGates } from './gates.js';
+import { buildWallTower } from './wall-tower.js';
 import { waterways } from './harbors.js';
 
 export const waterLevel = -1.15;
@@ -181,6 +182,8 @@ export function archBridge(mesh: MeshBatch, source: Bridge, path: XY[]) {
 export function fortifications(mesh: MeshBatch, town: TownData, vertex: (id: string) => XY, mounts: Mount[]) {
   const towers = selectWallTowerIds(town);
   const gateViews: Record<string, Focus> = {};
+  const towerViews: Record<string, Focus> = {};
+  let towerFocus: Focus | undefined, bestTower = -Infinity;
   let cityView: Focus | undefined, castleView: Focus | undefined;
   for (const wall of town.walls) {
     const gates = town.gates.filter(g => g.wallId === wall.id);
@@ -201,10 +204,25 @@ export function fortifications(mesh: MeshBatch, town: TownData, vertex: (id: str
       const count = Math.max(1, Math.floor(start.distanceTo(end) / 3.4));
       for (let k = 0; k < count; k++) mesh.prism(strip(at(start, end, (k + .16) / count), at(start, end, (k + .62) / count), 1), height, height + .85, '#bfb297');
     }));
+    const ring = wall.boundary.map(vertex), winding = Math.sign(ShapeUtils.area(ring)) || 1;
     for (const id of towers.get(wall.id) ?? []) {
       const p = vertex(id), radius = Math.min(3.1, ...gatePoints.map(g => g.distanceTo(p) * .45));
-      if (radius > .12) mesh.entity(wall.id + '/' + id, () => mesh.prism(circle(p, radius, 12), 0, height + 3, '#b8a98e', true));
+      if (radius <= .12) continue;
+      const i=wall.boundary.indexOf(id), prev=(i+ring.length-1)%ring.length;
+      const incoming=p.clone().sub(ring[prev]).normalize(), outgoing=ring[(i+1)%ring.length].clone().sub(p).normalize();
+      const axis=incoming.clone().add(outgoing);
+      if (!axis.lengthSq()) axis.copy(incoming.lengthSq() ? incoming : outgoing);
+      const exterior=axis.lengthSq() ? point(axis.y,-axis.x).normalize().multiplyScalar(winding) : point(1,0);
+      const arms=[];
+      if(wall.activeSegments[prev]) arms.push(incoming.negate());
+      if(wall.activeSegments[i]) arms.push(outgoing);
+      const key=wall.id+'/'+id;
+      const view=buildWallTower(mesh,mounts,key,p,radius,height,exterior,arms,wall.kind==='castle');
+      towerViews[key]=view;
+      // Prefer a full-size tower with its outside face in the light for the inspection preset.
+      const score=radius+exterior.dot(point(-.75,.48))+(wall.kind==='city'?1:0);
+      if (score>bestTower) {bestTower=score; towerFocus=view;}
     }
   }
-  return { gates: gateViews, focus: cityView ?? castleView };
+  return { gates: gateViews, towers:towerViews, towerFocus, focus: cityView ?? castleView };
 }
