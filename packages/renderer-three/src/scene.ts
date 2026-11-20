@@ -1,5 +1,5 @@
 import type { TownData } from '@settlement/core';
-import { building } from './buildings.js';
+import { building, hash } from './buildings.js';
 import { ShapeUtils } from 'three';
 import { archBridge, fortifications, landscape, localRoads, waterLevel } from './landscape.js';
 import { circle, mean, MeshBatch, point, world, type PackedMesh, type XYZ } from './mesh.js';
@@ -9,14 +9,15 @@ import { market } from './market.js';
 
 export interface RiverScene {
   terrain: PackedMesh; town: PackedMesh; townBounds: [XYZ, XYZ]; bridgeFocus: XYZ; bridgeViewDirection: XYZ;
-  props: { type: 'oak' | 'fountain'; position: XYZ; size: number }[];
+  props: ({position: XYZ; size: number} & ({type: 'oak'; maxHeight: number} | {type: 'fountain'}))[];
   mounts: Mount[]; focus: Partial<Record<FocusName,Focus>>; buildings: Record<string,Focus>; gates: Record<string,Focus>;
   junctionCenters: Record<string,XYZ>; towers: Record<string,Focus>;
 }
 export function buildRiverScene(town: TownData): RiverScene {
   const river = town.river;
   if (river && !river.surface?.length) throw new Error('河流规划缺少实际河面边界。');
-  const toLocal = (p: {x:number;y:number}) => point((p.x - town.center.x) * .5, (p.y - town.center.y) * .5);
+  const sceneUnitsPerMeter = .5;
+  const toLocal = (p: {x:number;y:number}) => point((p.x - town.center.x) * sceneUnitsPerMeter, (p.y - town.center.y) * sceneUnitsPerMeter);
   const vertices = new Map(town.vertices.map(p => [p.id, toLocal(p)]));
   const vertex = (id: string) => {
     const p = vertices.get(id);
@@ -97,11 +98,17 @@ export function buildRiverScene(town: TownData): RiverScene {
       continue;
     }
     const size=Math.max(.5,radius*1.5);
-    props.push({ type: feature.kind === 'grove' ? 'oak' : 'fountain', position: world(c, .04), size });
-    if(feature.kind==='fountain') {
-      const s=size/5.1;
-      mounts.push(mount('fountain_ornament_01',feature.id,c,.04+s*.3,0,[s,s,s]),mount('water_flow_01',feature.id,c,.04+s*.48,0,[s,s,s],1));
+    if (feature.kind === 'grove') {
+      // The Blender grove recipe uses 3.8–6.5 scene units (7.6–13 m on the map).
+      // Parcel width limits the crown; it does not determine the tree's natural height.
+      const fraction = hash(feature.id + '/oak/' + town.resolved.seed) / 0xffffffff;
+      const heightMeters = 7.6 + (13 - 7.6) * fraction;
+      props.push({type:'oak', position:world(c,.04), size, maxHeight:heightMeters * sceneUnitsPerMeter});
+      continue;
     }
+    props.push({type:'fountain', position:world(c,.04), size});
+    const s=size/5.1;
+    mounts.push(mount('fountain_ornament_01',feature.id,c,.04+s*.3,0,[s,s,s]),mount('water_flow_01',feature.id,c,.04+s*.48,0,[s,s,s],1));
   }
   const junctionCenters = Object.fromEntries(roads.junctions.map(j => [j.id, world(j.center, .1)]));
   return { terrain: terrain.pack(), town: city.pack(), townBounds: [lo, hi], props, mounts,focus,buildings, gates: defenses.gates, towers: defenses.towers, junctionCenters, bridgeFocus, bridgeViewDirection };

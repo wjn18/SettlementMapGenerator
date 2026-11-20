@@ -125,6 +125,26 @@ try {
   await page.locator('#live-town[data-details=ready]').waitFor();
   assert.match(await live.locator('[data-ui=stats]').innerText(),new RegExp(buildingCount+' 栋建筑'));
   await page.screenshot({path:resolve(output,'workshop.png')});
+  // Measure the loaded GLBs in world space. These two trees previously stood 57.9 m and 25.5 m tall.
+  await page.addInitScript(() => {
+    window.__THREE_DEVTOOLS__ = new EventTarget();
+    window.__THREE_DEVTOOLS__.addEventListener('observe', ({detail}) => {
+      if (detail.isScene) window.inspectedTown = detail;
+    });
+  });
+  await page.goto(base + '/?seed=7&size=12&river=true&coast=false&walls=true&castle=false&plaza=true&view=3d');
+  await page.locator('#live-town[data-details=ready]').waitFor();
+  const oakHeights = await page.evaluate(() => {
+    const scene = window.inspectedTown;
+    scene.updateMatrixWorld(true);
+    return scene.getObjectsByProperty('name','tree_oak_01__ROOT').map(oak => {
+      const mesh = oak.getObjectByProperty('isMesh',true);
+      const bounds = mesh.geometry.boundingBox.clone().setFromObject(oak,true);
+      return (bounds.max.y - bounds.min.y) / .5;
+    });
+  });
+  assert.equal(oakHeights.length,2);
+  assert.ok(oakHeights.every(h => h >= 7.6 - .001 && h <= 13 + .001), 'seed 7 oak heights in map metres: ' + oakHeights);
   await page.close();
 
   const details=await browser.newPage({viewport:{width:1440,height:900}});

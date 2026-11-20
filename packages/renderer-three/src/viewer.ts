@@ -211,7 +211,9 @@ export function createRiverViewer(host: HTMLElement, city: RiverScene, reference
       if (disposed) { release(model); return; }
       const box = new Box3().setFromObject(model), size = box.getSize(new Vector3()), base = box.getCenter(new Vector3());
       for (const prop of city.props.filter(p => p.type === type)) {
-        const asset = model.clone(true), scale = prop.size / Math.max(.01, size.x, size.z);
+        const asset = model.clone(true);
+        const widthScale = prop.size / Math.max(.01, size.x, size.z);
+        const scale = prop.type === 'oak' ? Math.min(widthScale, prop.maxHeight / Math.max(.01, size.y)) : widthScale;
         asset.scale.multiplyScalar(scale);
         asset.position.set(prop.position[0] - base.x * scale, prop.position[1] - box.min.y * scale, prop.position[2] - base.z * scale);
         asset.traverse(object => { if (object instanceof Mesh) { object.castShadow = true; object.receiveShadow = true; } });
